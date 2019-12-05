@@ -5,13 +5,15 @@ counts_gct_file = "test/test_counts.gct"
 tpm_gct_file = "test/test_tpm.gct"
 sample_lookup_file  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 outFolder = "results/" + dataCode + "/"
+genotype_PCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
+
 
 prefix = outFolder + dataCode
 
 PEER_values = [1, 5, 10, 15]
 
 rule all:
-	input: expand(prefix + '_{PEER_N}.PEER_covariates.txt',  PEER_N = PEER_values)  
+	input: expand(prefix + '_{PEER_N}.combined_covariates.txt',  PEER_N = PEER_values)  
 
 rule collapseGTF:
 	input: 
@@ -65,3 +67,16 @@ rule runPEER:
 		"ml R/3.6.0; "
 		"Rscript {params.script} {input} {prefix}_{params.num_peer} {params.num_peer}"
 
+rule combineCovariates:
+	input:
+		geno =	genotype_PCs,
+		peer =	prefix + "_{PEER_N}.PEER_covariates.txt" 
+	output:
+		prefix + "_{PEER_N}.combined_covariates.txt"
+	params: 
+		num_peer = "{PEER_N}",
+		script = "scripts/combine_covariates.py"
+	shell:
+		"python {params.script} {input.peer} {prefix}_{params.num_peer} "
+    		" --genotype_pcs {input.geno} "
+#    		" --add_covariates {add_covariates} "
