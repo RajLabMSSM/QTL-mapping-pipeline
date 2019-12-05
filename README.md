@@ -4,6 +4,14 @@ authors: Sanan Venkatesh and Jack Humphrey
 Towfique Raj lab, Mount Sinai
 
 
-dependencies:
+## dependencies:
 
-bx-python 
+*Python:*
+
+bx-python
+
+feather
+
+scipy
+
+numpy 

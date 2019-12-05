@@ -194,4 +194,3 @@ if __name__=='__main__':
     if args.legacy_mode:
         # for consistency with v6/v6p pipeline results, write unsorted expression file for PEER factor calculation
         norm_df.to_csv(os.path.join(args.output_dir, args.prefix+'.expression.txt'), sep='\t')
-
