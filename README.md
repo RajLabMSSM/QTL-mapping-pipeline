@@ -8,10 +8,20 @@ Towfique Raj lab, Mount Sinai
 
 *Python:*
 
-bx-python
+`ml python/3.7.3`
 
-feather
+R
 
-scipy
+`ml R/3.6.0`
 
-numpy 
+
+## running on test data
+
+```
+cd test
+sh create_test_gct_files.R  
+sh create_test_gtf.sh  
+sh create_test_vcf.sh
+cd ..
+snakemake
+```
