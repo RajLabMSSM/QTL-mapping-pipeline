@@ -1,10 +1,10 @@
 library(readr)
 library(dplyr)
-load("../../NYGC_ALS/data/oct_2019_gene_matrix.RData")
+load("/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData")
 
 gtf <- rtracklayer::readGFF("test_chr1.gtf")
 
-samples <- read_tsv("NYGC_ALS_CervicalSpinalCord_sample_key.txt")
+samples <- read_tsv("test_sample_key.txt")
 
 genes <- unique( gtf$gene_id )
 
