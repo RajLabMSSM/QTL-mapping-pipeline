@@ -3,8 +3,7 @@ GTF = "test/test_chr1.gtf" # cannot be gzipped
 dataCode = "test"
 counts_gct_file = "test/test_counts.gct"
 tpm_gct_file = "test/test_tpm.gct"
-sample_lookup_file = "test/NYGC_ALS_CervicalSpinalCord_sample_key_columns_reversed.txt"
-
+sample_lookup_file  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 outFolder = "results/" + dataCode + "/"
 
 prefix = outFolder + dataCode
