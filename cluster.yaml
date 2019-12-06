@@ -1,0 +1,28 @@
+__default__:
+  #partition: chimera
+  queue: bode2
+  cores: 1
+  mem: 3750
+  time: '60'
+  name: $(basename $(pwd)):{rule}:{wildcards}
+  output: logs/{rule}:{wildcards}.stdout
+  error: logs/{rule}:{wildcards}.stderr
+# extractJunctions:
+#   time: '120:00'
+#   cores: 1
+#   mem: 3750
+# clusterJunctions:
+#   time: '90:00'
+#   mem: 3750
+#   cores: 1
+#leafcutterDS:
+#   time: '120:00'
+#   mem: 3750
+#   cores: 4
+# createRefs:
+#   time: '24:00'
+# prepareShiny:
+#   mem: 3750
+#   cores: 1
+#   time: '24:00'
+## copied from Shea - this shows how to set rule-specific cluster parameters
