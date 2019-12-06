@@ -21,9 +21,8 @@ conda activate QTL-pipeline
 cd test
 
 sh create_test_gtf.sh  
-Rscript create_test_gct_files.R  
 sh create_test_vcf.sh
 
 cd ..
-snakemake -pr
+snakemake --configfile test/config.yaml -pr
 ```

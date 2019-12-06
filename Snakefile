@@ -1,32 +1,40 @@
-#VCF = "test/test_chr1.vcf.gz"
-VCF = "test/test_all_chr.vcf.gz"
-#VCFstem = "test/test_chr" # + CHR + ".vcf.gz"
-GTF = "test/test.gtf" # cannot be gzipped
-dataCode = "test"
-counts_gct_file = "test/test_counts.gct"
-tpm_gct_file = "test/test_tpm.gct"
-sample_lookup_file  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
-outFolder = "results/" + dataCode + "/"
-genotype_PCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
 
+#VCF = "test/test_all_chr.vcf.gz"
+#GTF = "test/test.gtf" # cannot be gzipped
+#dataCode = "test"
+#sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
+#genotypePCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
+#countMatrixRData = 
+
+VCF = config["VCF"]
+GTF = config["GTF"]
+dataCode = config["dataCode"]
+sampleKey = config["sampleKey"]
+genotypePCs = config["genotypePCs"]
+countMatrixRData = config["countMatrixRData"]
+# covariate file?
+
+# derived variables
+outFolder = "results/" + dataCode + "/"
 prefix = outFolder + dataCode
 
-PEER_values = [20]
-#chromosomes = [1,2]
+# these will be created
+counts_gct_file = "test/test_counts.gct"
+tpm_gct_file = "test/test_tpm.gct"
 
+
+# hardcoded variables
+PEER_values = [20] # a list so can have a range of different values
 chunk_number = 2 # at least as many chunks as there are chromosomes
-
-#tabix = "/hpc/packages/minerva-centos7/htslib/1.9/bin/tabix"
-#python = "/hpc/packages/minerva-centos7/python/3.7.3/bin/python"
-QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 chunk_range = range(1,chunk_number + 1)
+
+QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
 shell.prefix('export PS1="";source activate QTL-pipeline; module load qtltools/1.2;')
 
 rule all:
 	input: 
 		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
-		#expand(prefix + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHR = chromosomes, CHUNK = chunk_range),
 		expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 
 rule collapseGTF:
@@ -39,6 +47,16 @@ rule collapseGTF:
 	shell: 
 		"python {params.script} {input} {output} "
 		
+rule createGCTFiles:
+	input:
+		counts = countMatrixRData,
+		key = sampleKey,
+		gtf = outFolder + "collapsed.gtf"
+	output:
+		counts_gct_file = prefix + "_counts.gct",
+		tpm_gct_file = prefix + "_tpm.gct"
+	script:
+		"scripts/create_GCT_files.R"
 
 rule VCF_chr_list:
 	input: 
@@ -51,17 +69,17 @@ rule VCF_chr_list:
 rule prepareExpression:
 	input:
 		vcf_chr_list = outFolder + "vcf_chr_list.txt",
-		tpm_gct = tpm_gct_file,
-		counts_gct = counts_gct_file,
+		tpm_gct = prefix + "_tpm.gct",
+		counts_gct =  prefix + "_counts.gct",
 		gtf = outFolder + "collapsed.gtf",
-		sample_lookup = sample_lookup_file
+		sampleKey = sampleKey
 	output:
 		prefix + ".expression.bed.gz"
 	params:
 		script = "scripts/eqtl_prepare_expression.py"
 	shell:
 		" python {params.script} {input.tpm_gct} {input.counts_gct} {input.gtf} "
-		" {input.sample_lookup} {input.vcf_chr_list} {prefix} "
+		" {input.sampleKey} {input.vcf_chr_list} {prefix} "
 		" --tpm_threshold 0.1 "
 		" --count_threshold 6 "
 		" --sample_frac_threshold 0.2 "
@@ -82,7 +100,7 @@ rule runPEER:
 
 rule combineCovariates:
 	input:
-		geno =	genotype_PCs,
+		geno =	genotypePCs,
 		peer =	outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt" 
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
