@@ -1,0 +1,9 @@
+## compare BAMs and VCFs
+
+# full or relative path to gzipped, tabixed VCF of same chromosome as CHR
+VCF: "test/match_bam_to_genotypes/genotypes.chr22.vcf.gz"
+inFolder: "test/match_bam_to_genotypes/"
+outFolder: "test/match_bam_to_genotypes/results/"
+
+bamSuffix: ".bam"
+CHR: "chr22"
