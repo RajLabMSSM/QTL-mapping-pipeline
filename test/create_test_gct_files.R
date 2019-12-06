@@ -1,10 +1,18 @@
 library(readr)
-library(dplyr)
+library(dplyr,warn.conflicts = FALSE)
+
+# using the provided gene matrix and TPM matrix
+# extract just the genes in the test GTF file
+# write to a GCT format file
+# which has the stupid header and columns
+
+message(" * loading count matrix")
 load("/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData")
 
-gtf <- rtracklayer::readGFF("test_chr1.gtf")
+message(" * loading GTF")
+gtf <- rtracklayer::readGFF("test.gtf")
 
-samples <- read_tsv("test_sample_key.txt")
+samples <- read_tsv("test_sample_key.txt", col_types = "cc")
 
 genes <- unique( gtf$gene_id )
 
@@ -24,7 +32,7 @@ gct_columns <- data.frame(
 # writeLines them first then append the table after with write_tsv (append = TRUE)
 gct_header <- c("#1.2", paste(dim(counts), collapse = "\t") )
 
-
+message(" * writing GCT files")
 counts_gct <- cbind(gct_columns, counts)
 tpm_gct <- cbind(gct_columns, tpm)
 

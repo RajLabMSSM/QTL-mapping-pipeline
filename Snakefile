@@ -1,4 +1,5 @@
 VCF = "test/test_chr1.vcf.gz"
+VCFstem = "test/test_chr" # + CHR + ".vcf.gz"
 GTF = "test/test_chr1.gtf" # cannot be gzipped
 dataCode = "test"
 counts_gct_file = "test/test_counts.gct"
@@ -41,7 +42,7 @@ rule collapseGTF:
 
 rule VCF_chr_list:
 	input: 
-		VCF
+		VCFstem + "{CHR}.vcf.gz"
 	output:
 		outFolder + "vcf_chr_list.txt"
 	shell:
@@ -77,7 +78,7 @@ rule runPEER:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
 	shell:
 		"ml R/3.6.0; "
-		"Rscript {params.script} {input} {prefix}_peer{params.num_peer} {params.num_peer}"
+		"Rscript {params.script} {input} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} {params.num_peer}"
 
 rule combineCovariates:
 	input:
@@ -89,7 +90,7 @@ rule combineCovariates:
 		num_peer = "{PEER_N}",
 		script = "scripts/combine_covariates.py"
 	shell:
-		"{python} {params.script} {input.peer} {prefix}_peer{params.num_peer} "
+		"{python} {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
     		" --genotype_pcs {input.geno} "
 #    		" --add_covariates {add_covariates} "
 
@@ -97,7 +98,7 @@ rule QTLtools_nominal:
 	input:
 		expression = prefix + ".expression.bed.gz",
 		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-		vcf = VCF
+		vcf = VCFstem + "{CHR}.vcf.gz"
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_chr{CHR}_peer{PEER_N}_chunk{CHUNK}.nominals.txt"
 	params:

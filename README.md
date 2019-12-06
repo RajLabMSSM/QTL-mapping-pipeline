@@ -20,9 +20,11 @@ R
 ```
 # just run sh test_pipeline.sh
 cd test
-Rscript create_test_gct_files.R  
+
 sh create_test_gtf.sh  
+Rscript create_test_gct_files.R  
 sh create_test_vcf.sh
+
 cd ..
 snakemake
 ```

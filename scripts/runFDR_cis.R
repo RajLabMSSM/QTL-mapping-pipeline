@@ -1,3 +1,8 @@
+# modified by Jack to not give errors when presented with too small a list of P-values
+# which happens in some test cases
+
+#options(echo=TRUE)
+
 #Load qvalue package
 suppressMessages(library(qvalue))
 
@@ -29,6 +34,18 @@ cat("  * Correlation between Beta approx. and Empirical p-values =", round(cor(D
 #Run qvalue on pvalues for best signals
 cat("\nProcess Input data with Qvalue\n");
 MASK=!is.na(D[,18+exon_offset])
+
+if(length(MASK) < 100){
+cat(" * Number of p-values insufficient to calculate q values\n")
+
+fout1=paste(opt_output, "significant.txt", sep=".")
+fout2=paste(opt_output, "thresholds.txt", sep=".")
+write.table(data.frame(), fout1)
+write.table(data.frame(), fout2)
+quit()
+}
+
+
 Q = qvalue(D[MASK,19+exon_offset]);
 D$qval = NA;
 D$qval[MASK] = Q$qvalue;
