@@ -35,7 +35,7 @@ cat("  * Correlation between Beta approx. and Empirical p-values =", round(cor(D
 cat("\nProcess Input data with Qvalue\n");
 MASK=!is.na(D[,18+exon_offset])
 
-if(length(MASK) < 100){
+if(length(MASK) < 50){
 cat(" * Number of p-values insufficient to calculate q values\n")
 
 fout1=paste(opt_output, "significant.txt", sep=".")
