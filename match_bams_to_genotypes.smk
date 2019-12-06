@@ -4,7 +4,7 @@ import glob
 #SAMPLES = ["HG00381"]
 #outFolder = "test/match_bam_to_genotypes/"
 #VCF = outFolder + "genotypes.chr22.vcf.gz"
-
+shell.prefix('export PS1="";source activate QTL-pipeline; module load qtltools/1.2;')
 
 VCF = config["VCF"] # full path to gzipped, tabixed VCF of same chromosome as CHR
 inFolder = config["inFolder"]
