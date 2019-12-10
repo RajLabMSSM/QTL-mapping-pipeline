@@ -6,31 +6,32 @@
 #genotypePCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
 #countMatrixRData = 
 
+# currently set in config.yaml
+# but can be hardcoded in here as would not change 
 VCF = config["VCF"]
 GTF = config["GTF"]
+countMatrixRData = config["countMatrixRData"]
+
+
 dataCode = config["dataCode"]
 sampleKey = config["sampleKey"]
 genotypePCs = config["genotypePCs"]
-countMatrixRData = config["countMatrixRData"]
-# covariate file?
+covariateFile = config["covariateFile"]
+print(dataCode)
 
 # derived variables
 outFolder = "results/" + dataCode + "/"
 prefix = outFolder + dataCode
 
-# these will be created
-counts_gct_file = "test/test_counts.gct"
-tpm_gct_file = "test/test_tpm.gct"
-
-
 # hardcoded variables
+nPerm = 10000 # number of permutations of the permutation pass
 PEER_values = [20] # a list so can have a range of different values
 chunk_number = 2 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
-shell.prefix('export PS1="";source activate QTL-pipeline; module load qtltools/1.2;')
+shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
 rule all:
 	input: 
@@ -55,8 +56,14 @@ rule createGCTFiles:
 	output:
 		counts_gct_file = prefix + "_counts.gct",
 		tpm_gct_file = prefix + "_tpm.gct"
-	script:
-		"scripts/create_GCT_files.R"
+	shell:
+		"ml R/3.6.0; "
+		"Rscript scripts/create_GCT_files.R "
+		" --counts {input.counts} "
+		" --key {input.key} "
+		" --gtf {input.gtf} "
+		" --outFileCounts {output.counts_gct_file} "
+		" --outFileTPM {output.tpm_gct_file} "
 
 rule VCF_chr_list:
 	input: 
@@ -78,6 +85,7 @@ rule prepareExpression:
 	params:
 		script = "scripts/eqtl_prepare_expression.py"
 	shell:
+		"module load python/3.7.3;"
 		" python {params.script} {input.tpm_gct} {input.counts_gct} {input.gtf} "
 		" {input.sampleKey} {input.vcf_chr_list} {prefix} "
 		" --tpm_threshold 0.1 "
@@ -101,7 +109,8 @@ rule runPEER:
 rule combineCovariates:
 	input:
 		geno =	genotypePCs,
-		peer =	outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt" 
+		peer =	outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt",
+		covariates = covariateFile
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
 	params: 
@@ -110,7 +119,7 @@ rule combineCovariates:
 	shell:
 		"python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
     		" --genotype_pcs {input.geno} "
-#    		" --add_covariates {add_covariates} "
+    		" --add_covariates {input.covariates} "
 
 rule QTLtools_nominal:
 	input:
@@ -138,7 +147,7 @@ rule QTLtools_permutation:
         output:
                 outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt"
         params:
-                permutations = 1000,
+                permutations = nPerm,
 		chunk_num = "{CHUNK}",
 		chunk_max = chunk_number
         shell:

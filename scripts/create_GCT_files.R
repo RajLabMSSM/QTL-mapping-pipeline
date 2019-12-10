@@ -6,13 +6,34 @@ library(dplyr,warn.conflicts = FALSE)
 # write to a GCT format file
 # which has the stupid header and columns
 
-countMatrixRData <- snakemake@input[["counts"]]
-gtf <- snakemake@input[["gtf"]]
-sample_key <- snakemake@input[["key"]]
+library(optparse)
+
+option_list <- list(
+    make_option(c('--counts'), help = 'RData count matrix and TPM matrix', default = ""),
+    make_option(c('--gtf'), help = 'GENCODE GTF file', default = ""),
+    make_option(c('--key'), help = 'sample key', default = ""),
+    make_option(c('--outFileCounts'), help = "output a counts.gct file", default = ""),
+    make_option(c('--outFileTPM'), help = "output a tpm.gct file", default = "")
+)
+
+option.parser <- OptionParser(option_list=option_list)
+opt <- parse_args(option.parser)
+
+
+countMatrixRData <- opt$counts
+gtf <- opt$gtf
+sample_key <- opt$key
+
+counts_gct_file <- opt$outFileCounts
+tpm_gct_file <- opt$outFileTPM
+
+#countMatrixRData <- snakemake@input[["counts"]]
+#gtf <- snakemake@input[["gtf"]]
+#sample_key <- snakemake@input[["key"]]
 
 # output files
-counts_gct_file <- snakemake@output[["counts_gct_file"]]
-tpm_gct_file <- snakemake@output[["tpm_gct_file"]]
+#counts_gct_file <- snakemake@output[["counts_gct_file"]]
+#tpm_gct_file <- snakemake@output[["tpm_gct_file"]]
 
 message(" * loading count matrix")
 load(countMatrixRData)

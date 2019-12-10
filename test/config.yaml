@@ -1,8 +1,8 @@
 # experiment-specific parameters
-dataCode: "test"
+dataCode: test
 sampleKey: "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 genotypePCs: "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
-
+covariateFile: "test/test_wgs_covariates.txt" # as above
 # these shouldn't change
 countMatrixRData: "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
 VCF: "test/test_all_chr.vcf.gz"
