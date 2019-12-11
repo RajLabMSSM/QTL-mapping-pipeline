@@ -1,16 +1,16 @@
 
-#VCF = "test/test_all_chr.vcf.gz"
-#GTF = "test/test.gtf" # cannot be gzipped
+VCF = "test/test_all_chr.vcf.gz"
+GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 #dataCode = "test"
 #sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 #genotypePCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
-#countMatrixRData = 
+countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
 
 # currently set in config.yaml
 # but can be hardcoded in here as would not change 
-VCF = config["VCF"]
-GTF = config["GTF"]
-countMatrixRData = config["countMatrixRData"]
+#VCF = config["VCF"]
+#GTF = config["GTF"]
+#countMatrixRData = config["countMatrixRData"]
 
 
 dataCode = config["dataCode"]
