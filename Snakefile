@@ -1,6 +1,8 @@
 
-#VCF = "test/test_all_chr.vcf.gz"
-VCF = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode.vcf.gz"
+VCFstem = "test/test_all_chr"
+# use stem - add .vcf.gz to it
+#VCFstem = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode"
+
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 #dataCode = "test"
 #sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
@@ -26,9 +28,11 @@ prefix = outFolder + dataCode
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-PEER_values = [5,10,15,20,25,30,35] # a list so can have a range of different values
-chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
+PEER_values = [5] # a list so can have a range of different values
+chunk_number = 2 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
+
+PEER_values = config["PEER_values"]
 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
@@ -36,8 +40,10 @@ shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/
 
 rule all:
 	input:
-		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
-		expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
+		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
+		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
+		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
+		#expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 
 rule collapseGTF:
 	input:
@@ -68,11 +74,60 @@ rule createGCTFiles:
 
 rule VCF_chr_list:
 	input:
-		VCF
+		VCFstem + ".vcf.gz"
 	output:
 		outFolder + "vcf_chr_list.txt"
 	shell:
 		"for i in {input}; do tabix -l $i; done > {output}"
+
+# tensorQTL requires genotypes in PLINK format
+# convert using plink2
+# test VCF has multiallelic SNPs, hence the forcing with max-alleles
+# in real data we've previously excluded multiallelics
+# should go back to at some point
+rule VCFtoPLINK:
+	input:
+		VCFstem + ".vcf.gz"
+	output:
+		VCFstem + ".fam"
+	shell:
+		"ml plink2; "
+		"plink2 --make-bed "
+    		"--output-chr chrM "
+		"--max-alleles 2 "
+    		"--vcf {input} "
+    		"--out {VCFstem} "
+
+rule tensorQTL_cis:
+	input:
+		VCFstem + ".fam",
+		expression = prefix + ".expression.bed.gz",
+                covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+	output:
+		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
+	params:
+		num_peer = "{PEER_N}"
+	shell:
+		"python3 -m tensorqtl {VCFstem} {input.expression} "
+		"{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
+    		" --covariates {input.covariates} "
+    		" --mode cis "
+
+rule tensorQTL_cis_nominal:
+	input:
+		VCFstem + ".fam",
+		expression = prefix + ".expression.bed.gz",
+		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+	output:
+		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_nominal_qtl.txt.gz"
+	params:
+		num_peer = "{PEER_N}"
+	shell:
+		"python3 -m tensorqtl {VCFstem} {input.expression} "
+		"{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
+		"--covariates {input.covariates} "
+		" --mode cis_nominal "
+		
 
 rule prepareExpression:
 	input:
@@ -134,7 +189,7 @@ rule QTLtools_nominal:
 	input:
 		expression = prefix + ".expression.bed.gz",
 		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-		vcf = VCF
+		vcf = VCFstem + ".vcf.gz"
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt"
 	params:
@@ -161,7 +216,7 @@ rule QTLtools_permutation:
 	input:
 		expression = prefix + ".expression.bed.gz",
 		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-		vcf = VCF
+		vcf = VCFstem + ".vcf.gz"
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt"
 	params:
