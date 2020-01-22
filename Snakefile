@@ -1,4 +1,5 @@
 
+#VCF = "test/test_all_chr.vcf.gz"
 VCF = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode.vcf.gz"
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 #dataCode = "test"
@@ -7,7 +8,7 @@ GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode
 countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
 
 # currently set in config.yaml
-# but can be hardcoded in here as would not change 
+# but can be hardcoded in here as would not change
 #VCF = config["VCF"]
 #GTF = config["GTF"]
 #countMatrixRData = config["countMatrixRData"]
@@ -25,7 +26,7 @@ prefix = outFolder + dataCode
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-PEER_values = [20] # a list so can have a range of different values
+PEER_values = [5,10,15,20,25,30,35] # a list so can have a range of different values
 chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
@@ -34,20 +35,20 @@ QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
 rule all:
-	input: 
+	input:
 		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
 		expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 
 rule collapseGTF:
-	input: 
+	input:
 		GTF
 	output:
 		outFolder + "collapsed.gtf"
-	params: 
+	params:
 		script = "scripts/collapse_annotation.py"
-	shell: 
+	shell:
 		"python {params.script} {input} {output} "
-		
+
 rule createGCTFiles:
 	input:
 		counts = countMatrixRData,
@@ -66,7 +67,7 @@ rule createGCTFiles:
 		" --outFileTPM {output.tpm_gct_file} "
 
 rule VCF_chr_list:
-	input: 
+	input:
 		VCF
 	output:
 		outFolder + "vcf_chr_list.txt"
@@ -95,7 +96,7 @@ rule prepareExpression:
 
 
 rule runPEER:
-	input: 
+	input:
 		prefix + ".expression.bed.gz"
 	params:
 		script = "scripts/run_PEER.R",
@@ -113,14 +114,22 @@ rule combineCovariates:
 		covariates = covariateFile
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
-	params: 
+	params:
 		num_peer = "{PEER_N}",
-		script = "scripts/combine_covariates.py"
+		script = "scripts/combine_covariates.py",
+		logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
+		logPerFolder = outFolder + "peer{PEER_N}/logPerFolder"
 	shell:
 		"python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
     		" --genotype_pcs {input.geno} "
-    		" --add_covariates {input.covariates} "
+    		" --add_covariates {input.covariates}; "
+		"mkdir {params.logNomFolder};"
+		"mkdir {params.logPerFolder};"
 
+#Changes to QTLtools_nominal and QTLtools_permutation do the following
+#implements a do while loop to keep repeating the initial qtltools command to remove phenotypes without enough variants
+#If no output is created (happens when there is no genotype within the region), creates an empty file (last if statement in the shell script)
+#Additionally, it seems that a single log file will account for the logs for both nominal and permutation. They should be the same, and they should remove the same phenotypes
 rule QTLtools_nominal:
 	input:
 		expression = prefix + ".expression.bed.gz",
@@ -130,32 +139,48 @@ rule QTLtools_nominal:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt"
 	params:
 		pval_threshold = 0.01,
+		logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
 		chunk_num = "{CHUNK}",
 		chunk_max = chunk_number
 	shell:
-		"{QTLtools} cis --vcf {input.vcf} --bed {input.expression} --cov {input.covariates} "
+		"touch {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
+		"success=false;" #condition for do while loop
+		"until [ \"$success\" = true ]; "
+		"do {{"
+		" {QTLtools} cis --vcf {input.vcf} --bed {input.expression} --cov {input.covariates} "
 		" --nominal {params.pval_threshold} "
-		" --out {output}"
-		" --chunk {params.chunk_num} {params.chunk_max} "
-		" --normal "
+		"--out {output} --chunk {params.chunk_num} {params.chunk_max} "
+		" --normal --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
+		" && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
+		" || {{ grep 'Processing phenotype' {params.logNomFolder}/Chunk{params.chunk_num}_log.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
+		"sed -n \"$(wc -l < {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
+		">> {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
+		"if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
 
 rule QTLtools_permutation:
-        input:
-                expression = prefix + ".expression.bed.gz",
-                covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-                vcf = VCF
-        output:
-                outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt"
-        params:
-                permutations = nPerm,
+	input:
+		expression = prefix + ".expression.bed.gz",
+		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
+		vcf = VCF
+	output:
+		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt"
+	params:
+		permutations = nPerm,
+		logPerFolder = outFolder + "peer{PEER_N}/logPerFolder",
 		chunk_num = "{CHUNK}",
 		chunk_max = chunk_number
-        shell:
-                "{QTLtools} cis --vcf {input.vcf} --bed {input.expression} --cov {input.covariates} "
-                " --permute {params.permutations} "
-                " --out {output}"
-		" --chunk {params.chunk_num} {params.chunk_max} "
-		" --normal "
+	shell:
+		"touch {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
+		"success=false;" #condition for do while loop
+		"until [ \"$success\" = true ]; do {{ {QTLtools} cis --vcf {input.vcf} --bed {input.expression} --cov {input.covariates} "
+		" --permute {params.permutations} "
+		"--out {output} --chunk {params.chunk_num} {params.chunk_max} "
+		" --normal --exclude-phenotypes {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log.txt"
+		" && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
+		" || {{ grep 'Processing phenotype' {params.logPerFolder}/Chunk{params.chunk_num}_log.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
+		"sed -n \"$(wc -l < {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
+		">> {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
+		"if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
 
 rule summariseResults:
 	input:
@@ -166,8 +191,56 @@ rule summariseResults:
 	params:
 		files = outFolder + "peer{PEER_N}/" + dataCode + "*" + "_peer{PEER_N}*permutations.txt",
 		script = "scripts/runFDR_cis.R",
-		file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes"
+		file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
+		logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
+		logPerFolder = outFolder + "peer{PEER_N}/logPerFolder"
 	shell:
 		"ml R/3.6.0;"
 		"cat {params.files} | gzip -c > {output.full};"
-		"Rscript {params.script} {output.full} 0.05 {params.file_prefix}"
+		"Rscript {params.script} {output.full} 0.05 {params.file_prefix};"
+
+		#summarizes removed chunks/genotypes
+		"touch {params.logNomFolder}/removed_genotypes_chunks.txt;"
+		"touch {params.logNomFolder}/removed_genotypes_loci.txt;"
+		"grep \"EXITED:\" {params.logNomFolder}/* | rev | cut -d\"/\" -f1 | rev | cut -d\"_\" -f1 > {params.logNomFolder}/removed_genotypes_chunks.txt;"
+		"grep -A1 \"VCF\" $(grep \"EXITED:\" {params.logNomFolder}/* | cut -d\":\" -f1) | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logNomFolder}/removed_genotypes_loci.txt;"		
+		#"ls {params.logNomFolder}/ | grep \"EXITED:\" | cut -d\"_\" -f1 > {params.logNomFolder}/removed_genotypes_chunks.txt;"
+		#"ls {params.logNomFolder}/ | grep \"EXITED:\" | cut -d\":\" -f1 | grep -A1 \"VCF\" | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logNomFolder}/removed_genotypes_loci.txt;"
+		"paste {params.logNomFolder}/removed_genotypes_chunks.txt {params.logNomFolder}/removed_genotypes_loci.txt > {params.logNomFolder}/Removed_Genotypes.txt;"
+		"rm {params.logNomFolder}/removed_genotypes_chunks.txt;"
+		"rm {params.logNomFolder}/removed_genotypes_loci.txt;"
+
+		#summarizes removed _exclude_phenotypes
+		"touch {params.logNomFolder}/removed_phenotypes_chunks.txt;"
+		"touch {params.logNomFolder}/removed_phenotypes_loci.txt;"
+		"touch {params.logNomFolder}/removed_phenotypes_list.txt;"
+		"find {params.logNomFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev | cut -d'_' -f1 > {params.logNomFolder}/removed_phenotypes_chunks.txt;"
+		"grep -A1 \"Reading phenotype data in\" {params.logPerFolder}/\"$(find {params.logNomFolder}/*exclude_phenotypes.txt -not -empty -ls | rev |cut -d'/' -f1 | rev | cut -d'_' -f1)\"_log.txt | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logNomFolder}/removed_phenotypes_loci.txt;"
+		"tr '\n' ',' < {params.logPerFolder}/$(find {params.logNomFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev) > {params.logNomFolder}/removed_phenotypes_list.txt;"
+		"paste {params.logNomFolder}/removed_phenotypes_chunks.txt {params.logNomFolder}/removed_phenotypes_loci.txt {params.logNomFolder}/removed_phenotypes_list.txt > {params.logNomFolder}/Removed_Phenotypes.txt;"
+		"rm {params.logNomFolder}/removed_phenotypes_chunks.txt;"
+		"rm {params.logNomFolder}/removed_phenotypes_loci.txt;"
+		"rm {params.logNomFolder}/removed_phenotypes_list.txt;"
+
+		#summarizes removed chunks/genotypes
+		"touch {params.logPerFolder}/removed_genotypes_chunks.txt;"
+		"touch {params.logPerFolder}/removed_genotypes_loci.txt;"
+		"grep \"EXITED:\" {params.logPerFolder}/* | rev | cut -d\"/\" -f1 | rev | cut -d\"_\" -f1 > {params.logPerFolder}/removed_genotypes_chunks.txt;"
+		"grep -A1 \"VCF\" $(grep \"EXITED:\" {params.logPerFolder}/* | cut -d\":\" -f1) | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logPerFolder}/removed_genotypes_loci.txt;"
+		#"ls {params.logPerFolder}/ | grep \"EXITED:\" | cut -d\"_\" -f1 > {params.logPerFolder}/removed_genotypes_chunks.txt;"
+		#"ls {params.logPerFolder}/ | grep \"EXITED:\" | cut -d\":\" -f1 | grep -A1 \"VCF\" | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logPerFolder}/removed_genotypes_loci.txt;"
+		"paste {params.logPerFolder}/removed_genotypes_chunks.txt {params.logPerFolder}/removed_genotypes_loci.txt > {params.logPerFolder}/Removed_Genotypes.txt;"
+                "rm {params.logPerFolder}/removed_genotypes_chunks.txt;"
+		"rm {params.logPerFolder}/removed_genotypes_loci.txt;"
+
+		#summarizes removed _exclude_phenotypes
+		"touch {params.logPerFolder}/removed_phenotypes_chunks.txt;"
+		"touch {params.logPerFolder}/removed_phenotypes_loci.txt;"
+		"touch {params.logPerFolder}/removed_phenotypes_list.txt;"
+		"find {params.logPerFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev | cut -d'_' -f1 > {params.logPerFolder}/removed_phenotypes_chunks.txt;"
+		"grep -A1 \"Reading phenotype data in\" {params.logPerFolder}/\"$(find {params.logPerFolder}/*exclude_phenotypes.txt -not -empty -ls | rev |cut -d'/' -f1 | rev | cut -d'_' -f1)\"_log.txt | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logPerFolder}/removed_phenotypes_loci.txt;"
+		"tr '\n' ',' < {params.logPerFolder}/$(find {params.logPerFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev) > {params.logPerFolder}/removed_phenotypes_list.txt;"
+		"paste {params.logPerFolder}/removed_phenotypes_chunks.txt {params.logPerFolder}/removed_phenotypes_loci.txt {params.logPerFolder}/removed_phenotypes_list.txt > {params.logPerFolder}/Removed_Phenotypes.txt;"
+		"rm {params.logPerFolder}/removed_phenotypes_chunks.txt;"
+		"rm {params.logPerFolder}/removed_phenotypes_loci.txt;"
+		"rm {params.logPerFolder}/removed_phenotypes_list.txt;"
