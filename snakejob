@@ -70,6 +70,6 @@ snakemake -u cluster.yaml --cluster-sync "${bsub[*]}" \
   --local-cores 4 --max-jobs-per-second 5 \
   --jobs 100 \
   -s $snakefile --configfile $config \
-  --latency-wait 30 \
+  --latency-wait 30 --rerun-incomplete\
   $dryrun
 

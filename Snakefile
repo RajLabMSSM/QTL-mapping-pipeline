@@ -1,5 +1,5 @@
 
-VCF = "test/test_all_chr.vcf.gz"
+VCF = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode.vcf.gz"
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 #dataCode = "test"
 #sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
@@ -26,7 +26,7 @@ prefix = outFolder + dataCode
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
 PEER_values = [20] # a list so can have a range of different values
-chunk_number = 2 # at least as many chunks as there are chromosomes
+chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
