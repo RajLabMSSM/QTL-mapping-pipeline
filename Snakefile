@@ -62,6 +62,20 @@ rule collapseGTF:
 	shell:
 		"python {params.script} {input} {output} "
 
+rule getExonsFromGTF:
+	input:
+		GTF
+	params:
+		out_folder = os.path.dirname(GTF),
+		script = "scripts/get_exon_table.R"
+	output:
+		GTF + ".exons.txt.gz"
+	shell:
+		"ml R/3.6.0; "
+		"Rscript {params.script} "
+		" --gtf {input} "
+		" --outFolder {params.out_folder} "
+
 rule createGCTFiles:
 	input:
 		counts = countMatrixRData,
@@ -143,7 +157,7 @@ rule leafcutterPrepare:
 	input:
 		# expecting gzipped junction files with extension {sample}.junc.gz
 		junction_file_list = junctionFileList, # from config - a file listing full paths to each junction file 
-		exon_list = GTFexons, # hg38 exons from gencode v30
+		exon_list = GTF + ".exons.txt.gz", # hg38 exons from gencode v30 with gene_id and gene_name
 		genes_gtf = GTF # full GTF or just gene starts and ends?
 	output:
 		counts = prefix + "_perind.counts.gz",
@@ -161,8 +175,10 @@ rule leafcutterPrepare:
 		min_clu_reads = 30,
 		min_clu_ratio = 0.001,
 		max_intron_len = 500000,
-		num_pcs = 15
-	shell:
+		num_pcs = 10 # must be at least the number of samples!
+	shell:	
+		"ml R/3.6.0;"
+		"ml tabix;"
 	 	"python {params.script} "
             	" {input.junction_file_list} "
             	" {input.exon_list} "
@@ -172,8 +188,11 @@ rule leafcutterPrepare:
             	" --min_clu_ratio {params.min_clu_ratio} "
             	" --max_intron_len {params.max_intron_len} "
             	" --num_pcs {params.num_pcs} " 
-		" --leafcutter_dir {params.leafcutter_dir} "
+		" --leafcutter_dir {params.leafcutter_dir}; "
+		"rm *sorted.gz; " # clean up directory
+		"rm {prefix}_perind.counts.filtered.gz.phen_* "
 
+# from Francois Auguet at GTEX
 rule prepareExpression:
 	input:
 		vcf_chr_list = outFolder + "vcf_chr_list.txt",

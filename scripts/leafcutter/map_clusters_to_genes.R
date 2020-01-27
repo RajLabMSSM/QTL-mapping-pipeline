@@ -66,9 +66,9 @@ intron_meta <- get_intron_meta(rownames(intron_counts))
 
 exon_table <- read.table(argv$exon_file, header=TRUE, stringsAsFactors=FALSE)
 # JH - my table only has gene_name
-stopifnot(is.element('gene_name', colnames(exon_table)))
-#stopifnot(is.element('gene_id', colnames(exon_table)))
-#exon_table[, 'gene_name'] <- exon_table[, 'gene_id']
+#stopifnot(is.element('gene_name', colnames(exon_table)))
+stopifnot(is.element('gene_id', colnames(exon_table)))
+exon_table[, 'gene_name'] <- exon_table[, 'gene_id']
 
 m <- map_clusters_to_genes(intron_meta, exon_table)
 write.table(m, file.path(argv$output_dir, argv$output_name), sep = "\t", quote=FALSE, row.names=FALSE)

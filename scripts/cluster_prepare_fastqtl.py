@@ -1,4 +1,4 @@
-
+import pickle
 import pandas as pd
 import numpy as np
 import argparse
@@ -19,6 +19,7 @@ from sklearn.decomposition import PCA
 # explicitly call python2 with the leafcutter scripts
 # all leafcutter scripts and map_genes.R script are assumed to be in the same folder (--leafcutter_dir)
 # line where glob looks for qq files was looking within --output_dir now looks in os.path.dirname(--prefix) - this is same as outFolder
+# swapped out write_bed function for the one in the eQTL expression prepare_bed.py script which works with python3
 
 @contextlib.contextmanager
 def cd(cd_path):
@@ -61,13 +62,26 @@ def gtf_to_bed(annotation_gtf, feature='gene'):
     return bed_df
 
 
+#def write_bed(bed_df, output_name):
+#    """Write DataFrame to BED"""
+#    bgzip = subprocess.Popen('bgzip -c > '+output_name,
+#        stdin=subprocess.PIPE, shell=True)
+#    bed_df.to_csv(bgzip.stdin, sep='\t', index=False)
+#    stdout, stderr = bgzip.communicate()
+#    subprocess.check_call('tabix -f '+output_name, shell=True)
+
 def write_bed(bed_df, output_name):
-    """Write DataFrame to BED"""
-    bgzip = subprocess.Popen('bgzip -c > '+output_name,
-        stdin=subprocess.PIPE, shell=True)
-    bed_df.to_csv(bgzip.stdin, sep='\t', index=False)
-    stdout, stderr = bgzip.communicate()
-    subprocess.check_call('tabix -f '+output_name, shell=True)
+    """
+    Write DataFrame to BED format
+    """
+    #assert bed_df.columns[0]=='chr' and bed_df.columns[1]=='start' and bed_df.columns[2]=='end'
+    # header must be commented in BED format
+    header = bed_df.columns.values.copy()
+    #header[0] = '#chr'
+    bed_df.to_csv(output_name, sep='\t', index=False, header=True)
+    subprocess.check_call('bgzip -f '+output_name, shell=True, executable='/bin/bash')
+    subprocess.check_call('tabix -f '+output_name+'.gz', shell=True, executable='/bin/bash')
+
 
 
 if __name__=='__main__':
@@ -80,7 +94,7 @@ if __name__=='__main__':
     parser.add_argument('--min_clu_reads', default='50', type=str, help='Minimum number of reads supporting each cluster')
     parser.add_argument('--min_clu_ratio', default='0.001', type=str, help='Minimum fraction of reads in a cluster that support a junction')
     parser.add_argument('--max_intron_len', default='500000', type=str, help='Maximum intron length')
-    parser.add_argument('--num_pcs', default=10, type=int, help='Number of principal components to calculate')
+    parser.add_argument('--num_pcs', default=5, type=int, help='Number of principal components to calculate')
     parser.add_argument('--leafcutter_dir', default='/opt/leafcutter',
                         help="leafcutter directory, containing 'clustering' directory")
     parser.add_argument('-o', '--output_dir', default='.', help='Output directory')
@@ -200,6 +214,9 @@ if __name__=='__main__':
         bed_df['#Chr'] = 'chr'+bed_df['#Chr'].astype(str)
         bed_df['ID'] = 'chr'+bed_df['ID']
 
+	# debugging - pickle bed_df
+        #filehandler = open("bed_df.pickle", mode = 'wb')	
+        #pickle.dump(bed_df, filehandler)
         print('    ** assigning introns to gene mapping(s)')
         n = 0
         gene_bed_df = []
@@ -222,14 +239,15 @@ if __name__=='__main__':
         gene_bed_df = gene_bed_df.groupby('#Chr', sort=False, group_keys=False).apply(lambda x: x.sort_values('start'))
         # change sample IDs to participant IDs
         gene_bed_df.rename(columns={i:'-'.join(i.split('-')[:2]) for i in gene_bed_df.columns[4:]}, inplace=True)
-        write_bed(gene_bed_df, os.path.join(args.output_dir, args.prefix+'.leafcutter.bed.gz'))
+        write_bed(gene_bed_df, os.path.join(args.output_dir, args.prefix+'.leafcutter.bed'))
         pd.Series(group_s).sort_values().to_csv(os.path.join(args.output_dir, args.prefix+'.leafcutter.phenotype_groups.txt'), sep='\t')
 
         print('  * calculating PCs')
         pca = PCA(n_components=args.num_pcs)
         pca.fit(bed_df[bed_df.columns[4:]])
         pc_df = pd.DataFrame(pca.components_, index=['PC{}'.format(i) for i in range(1,11)],
-            columns=['-'.join(i.split('-')[:2]) for i in bed_df.columns[4:]])
+            columns=bed_df.columns[4:] )
+		#columns=['-'.join(i.split('-')[:2]) for i in bed_df.columns[4:]])
         pc_df.index.name = 'ID'
         pc_df.to_csv(args.prefix+'.leafcutter.PCs.txt', sep='\t')
 
