@@ -3,11 +3,17 @@ VCFstem = "test/test_all_chr"
 # use stem - add .vcf.gz to it
 #VCFstem = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode"
 
+leafcutter_dir = "/sc/orga/projects/ad-omics/data/software/leafcutter/"
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
+GTFexons = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode_hg38_v30_all_exons.txt.gz" # can it be gzipped?
 #dataCode = "test"
 #sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 #genotypePCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
+# should be in config file
 countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
+
+QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
+
 
 # currently set in config.yaml
 # but can be hardcoded in here as would not change
@@ -20,6 +26,9 @@ dataCode = config["dataCode"]
 sampleKey = config["sampleKey"]
 genotypePCs = config["genotypePCs"]
 covariateFile = config["covariateFile"]
+
+junctionFileList = config["junctionFileList"]
+
 print(dataCode)
 
 # derived variables
@@ -33,15 +42,13 @@ chunk_number = 2 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 PEER_values = config["PEER_values"]
-
-QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
-
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
 rule all:
 	input:
-		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
-		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
+		prefix + ".leafcutter.PCs.txt"
+		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
+		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
 		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
 		#expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 
@@ -128,6 +135,44 @@ rule tensorQTL_cis_nominal:
 		"--covariates {input.covariates} "
 		" --mode cis_nominal "
 		
+# script from GTEX pipeline
+# performs leafcutter clustering
+# filtering of junctions by missingness and variability
+# runs leafcutter_prepare_phenotype.py 
+rule leafcutterPrepare:
+	input:
+		# expecting gzipped junction files with extension {sample}.junc.gz
+		junction_file_list = junctionFileList, # from config - a file listing full paths to each junction file 
+		exon_list = GTFexons, # hg38 exons from gencode v30
+		genes_gtf = GTF # full GTF or just gene starts and ends?
+	output:
+		counts = prefix + "_perind.counts.gz",
+		counts_numers = prefix + "_perind_numers.counts.gz",
+		clusters_pooled = prefix + "_pooled.gz",
+		clusters_refined = prefix + "_refined.gz",
+#		clusters_to_genes = prefix + ".leafcutter.clusters_to_genes.txt",
+		phenotype_groups = prefix + ".leafcutter.phenotype_groups.txt",
+		leafcutter_bed = prefix + ".leafcutter.bed.gz",
+		leafcutter_bed_index = prefix + ".leafcutter.bed.gz.tbi",
+		leafcutter_pcs = prefix + ".leafcutter.PCs.txt"
+	params: 
+		leafcutter_dir = "scripts/leafcutter/", # all leafcutter scripts hosted in a folder - some had to be converted py2 -> py3
+		script = "scripts/cluster_prepare_fastqtl.py",
+		min_clu_reads = 30,
+		min_clu_ratio = 0.001,
+		max_intron_len = 500000,
+		num_pcs = 15
+	shell:
+	 	"python {params.script} "
+            	" {input.junction_file_list} "
+            	" {input.exon_list} "
+            	" {input.genes_gtf} "
+            	" {prefix} "
+            	" --min_clu_reads {params.min_clu_reads} "
+            	" --min_clu_ratio {params.min_clu_ratio} "
+            	" --max_intron_len {params.max_intron_len} "
+            	" --num_pcs {params.num_pcs} " 
+		" --leafcutter_dir {params.leafcutter_dir} "
 
 rule prepareExpression:
 	input:

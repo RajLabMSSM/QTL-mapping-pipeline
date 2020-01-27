@@ -1,0 +1,10 @@
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00769.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00770.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00779.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00803.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00811.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00812.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00813.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00820.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00821.junc.gz
+/sc/orga/projects/als-omics/NYGC_ALS/analysis/leafcutter-pipeline/junctions/CGND-HRA-00822.junc.gz
