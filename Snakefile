@@ -14,6 +14,12 @@ countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matr
 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
+mode = config["mode"]
+
+print("hello!")
+print(mode)
+
+#mode = "sQTL"
 
 # currently set in config.yaml
 # but can be hardcoded in here as would not change
@@ -32,8 +38,8 @@ junctionFileList = config["junctionFileList"]
 print(dataCode)
 
 # derived variables
-outFolder = "results/" + dataCode + "/"
-prefix = outFolder + dataCode
+#outFolder = "results/" + dataCode + "/"
+#prefix = outFolder + dataCode
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
@@ -44,9 +50,29 @@ chunk_range = range(1,chunk_number + 1)
 PEER_values = config["PEER_values"]
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
+interaction = False
+
+if(mode == "eQTL"):
+	dataCode = dataCode + "_expression"
+	outFolder = "results/" + dataCode + "/"
+	prefix = outFolder + dataCode
+	phenotype_matrix = prefix + ".expression.bed.gz"
+	internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
+	final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
+if(mode == "sQTL"):
+	dataCode = dataCode + "_splicing"
+	outFolder = "results/" + dataCode + "/"
+	prefix = outFolder + dataCode
+	phenotype_matrix = prefix + ".leafcutter.bed.gz" 
+	internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt" #outFolder + ".leafcutter.PCs.txt"
+	final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values) #prefix + "_results.genes.significant.txt"	
+
+# if interaction requested then use TensorQTL and include script that matches interaction values to covariates and samples
+
 rule all:
 	input:
-		prefix + ".leafcutter.PCs.txt"
+		final_output
+		#prefix + ".leafcutter.PCs.txt"
 		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
 		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
 		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
@@ -101,59 +127,11 @@ rule VCF_chr_list:
 	shell:
 		"for i in {input}; do tabix -l $i; done > {output}"
 
-# tensorQTL requires genotypes in PLINK format
-# convert using plink2
-# test VCF has multiallelic SNPs, hence the forcing with max-alleles
-# in real data we've previously excluded multiallelics
-# should go back to at some point
-rule VCFtoPLINK:
-	input:
-		VCFstem + ".vcf.gz"
-	output:
-		VCFstem + ".fam"
-	shell:
-		"ml plink2; "
-		"plink2 --make-bed "
-    		"--output-chr chrM "
-		"--max-alleles 2 "
-    		"--vcf {input} "
-    		"--out {VCFstem} "
-
-rule tensorQTL_cis:
-	input:
-		VCFstem + ".fam",
-		expression = prefix + ".expression.bed.gz",
-                covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
-	output:
-		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
-	params:
-		num_peer = "{PEER_N}"
-	shell:
-		"python3 -m tensorqtl {VCFstem} {input.expression} "
-		"{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
-    		" --covariates {input.covariates} "
-    		" --mode cis "
-
-rule tensorQTL_cis_nominal:
-	input:
-		VCFstem + ".fam",
-		expression = prefix + ".expression.bed.gz",
-		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
-	output:
-		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_nominal_qtl.txt.gz"
-	params:
-		num_peer = "{PEER_N}"
-	shell:
-		"python3 -m tensorqtl {VCFstem} {input.expression} "
-		"{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
-		"--covariates {input.covariates} "
-		" --mode cis_nominal "
-		
 # script from GTEX pipeline
 # performs leafcutter clustering
 # filtering of junctions by missingness and variability
 # runs leafcutter_prepare_phenotype.py 
-rule leafcutterPrepare:
+rule prepareSplicing:
 	input:
 		# expecting gzipped junction files with extension {sample}.junc.gz
 		junction_file_list = junctionFileList, # from config - a file listing full paths to each junction file 
@@ -175,7 +153,7 @@ rule leafcutterPrepare:
 		min_clu_reads = 30,
 		min_clu_ratio = 0.001,
 		max_intron_len = 500000,
-		num_pcs = 10 # must be at least the number of samples!
+		num_pcs = 15 # must be at least the number of samples!
 	shell:	
 		"ml R/3.6.0;"
 		"ml tabix;"
@@ -193,6 +171,9 @@ rule leafcutterPrepare:
 		"rm {prefix}_perind.counts.filtered.gz.phen_* "
 
 # from Francois Auguet at GTEX
+# eQTLs - first prepare expression from RSEM count matrix
+# then run PEER
+# then add PEER factors to known covariates
 rule prepareExpression:
 	input:
 		vcf_chr_list = outFolder + "vcf_chr_list.txt",
@@ -213,10 +194,10 @@ rule prepareExpression:
 		" --sample_frac_threshold 0.2 "
 		" --normalization_method tmm "
 
-
 rule runPEER:
 	input:
-		prefix + ".expression.bed.gz"
+		phenotype_matrix # either expression or splicing counts
+		#prefix + ".expression.bed.gz"
 	params:
 		script = "scripts/run_PEER.R",
 		num_peer = "{PEER_N}"
@@ -251,7 +232,8 @@ rule combineCovariates:
 #Additionally, it seems that a single log file will account for the logs for both nominal and permutation. They should be the same, and they should remove the same phenotypes
 rule QTLtools_nominal:
 	input:
-		expression = prefix + ".expression.bed.gz",
+		phenotypes = phenotype_matrix,
+		#expression = prefix + ".expression.bed.gz",
 		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
 		vcf = VCFstem + ".vcf.gz"
 	output:
@@ -266,7 +248,7 @@ rule QTLtools_nominal:
 		"success=false;" #condition for do while loop
 		"until [ \"$success\" = true ]; "
 		"do {{"
-		" {QTLtools} cis --vcf {input.vcf} --bed {input.expression} --cov {input.covariates} "
+		" {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
 		" --nominal {params.pval_threshold} "
 		"--out {output} --chunk {params.chunk_num} {params.chunk_max} "
 		" --normal --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
@@ -278,7 +260,8 @@ rule QTLtools_nominal:
 
 rule QTLtools_permutation:
 	input:
-		expression = prefix + ".expression.bed.gz",
+		phenotypes = phenotype_matrix,
+		#expression = prefix + ".expression.bed.gz",
 		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
 		vcf = VCFstem + ".vcf.gz"
 	output:
@@ -291,7 +274,7 @@ rule QTLtools_permutation:
 	shell:
 		"touch {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
 		"success=false;" #condition for do while loop
-		"until [ \"$success\" = true ]; do {{ {QTLtools} cis --vcf {input.vcf} --bed {input.expression} --cov {input.covariates} "
+		"until [ \"$success\" = true ]; do {{ {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
 		" --permute {params.permutations} "
 		"--out {output} --chunk {params.chunk_num} {params.chunk_max} "
 		" --normal --exclude-phenotypes {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log.txt"
@@ -301,7 +284,7 @@ rule QTLtools_permutation:
 		">> {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
 		"if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
 
-rule summariseResults:
+rule summariseQTLtoolsResults:
 	input:
 		expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 	output:
@@ -362,4 +345,58 @@ rule summariseResults:
 		"paste {params.logPerFolder}/removed_phenotypes_chunks.txt {params.logPerFolder}/removed_phenotypes_loci.txt {params.logPerFolder}/removed_phenotypes_list.txt > {params.logPerFolder}/Removed_Phenotypes.txt;"
 		"rm {params.logPerFolder}/removed_phenotypes_chunks.txt;"
 		"rm {params.logPerFolder}/removed_phenotypes_loci.txt;"
+
+## TENSORQTL RULES
+
+# tensorQTL requires genotypes in PLINK format
+# convert using plink2
+# test VCF has multiallelic SNPs, hence the forcing with max-alleles
+# in real data we've previously excluded multiallelics
+# should go back to at some point
+rule VCFtoPLINK:
+	input:
+		VCFstem + ".vcf.gz"
+	output:
+		VCFstem + ".fam"
+	shell:
+		"ml plink2; "
+		"plink2 --make-bed "
+    		"--output-chr chrM "
+		"--max-alleles 2 "
+    		"--vcf {input} "
+    		"--out {VCFstem} "
+
+rule tensorQTL_cis:
+	input:
+		VCFstem + ".fam",
+		phenotypes = phenotype_matrix,
+		#expression = prefix + ".expression.bed.gz",
+                covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+	output:
+		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
+	params:
+		num_peer = "{PEER_N}"
+	shell:
+		"python3 -m tensorqtl {VCFstem} {input.phenotypes} "
+		"{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
+    		" --covariates {input.covariates} "
+    		" --mode cis "
+
+rule tensorQTL_cis_nominal:
+	input:
+		VCFstem + ".fam",
+		phenotypes = phenotype_matrix,
+		#expression = prefix + ".expression.bed.gz",
+		covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+	output:
+		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_nominal_qtl.txt.gz"
+	params:
+		num_peer = "{PEER_N}"
+	shell:
+		"python3 -m tensorqtl {VCFstem} {input.phenotypes} "
+		"{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
+		"--covariates {input.covariates} "
+		" --mode cis_nominal "
+		
+
 		"rm {params.logPerFolder}/removed_phenotypes_list.txt;"
