@@ -257,7 +257,8 @@ if __name__=='__main__':
         gene_bed_df = pd.DataFrame(gene_bed_df, columns=bed_df.columns)
         gene_bed_df = gene_bed_df.groupby('#Chr', sort=False, group_keys=False).apply(lambda x: x.sort_values('start'))
         # change sample IDs to participant IDs
-        gene_bed_df.rename(columns={i:'-'.join(i.split('-')[:2]) for i in gene_bed_df.columns[4:]}, inplace=True)
+        # this code was mangling my participant IDs
+        #gene_bed_df.rename(columns={i:'-'.join(i.split('-')[:2]) for i in gene_bed_df.columns[4:]}, inplace=True)
         write_bed(gene_bed_df, os.path.join(args.output_dir, args.prefix+'.leafcutter.bed'))
         pd.Series(group_s).sort_values().to_csv(os.path.join(args.output_dir, args.prefix+'.leafcutter.phenotype_groups.txt'), sep='\t')
         
@@ -272,7 +273,7 @@ if __name__=='__main__':
         # clean up!
         shutil.rmtree(junc_dir)
         sorted_files = glob.glob("*sorted.gz")
-        misc_files = glob.glob( os.path.join(os.path.dirname(args.prefix), "_perind.counts.filtered.gz.phen_*" )
+        misc_files = glob.glob( os.path.join(os.path.dirname(args.prefix), "_perind.counts.filtered.gz.phen_*" ) )
         for fname in bed_files + sorted_files + misc_files:
             if os.path.isfile(fname):
                 os.remove(fname)    

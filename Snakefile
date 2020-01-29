@@ -41,7 +41,7 @@ print(dataCode)
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
 PEER_values = [15] # a list so can have a range of different values
-chunk_number = 22 # at least as many chunks as there are chromosomes
+chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 PEER_values = config["PEER_values"]
