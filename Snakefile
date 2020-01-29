@@ -1,11 +1,17 @@
 
-VCFstem = "test/test_all_chr"
+# assume VCF is gzipped
+VCF = config["VCF"]
+
+VCFstem = VCF.split(".vcf.gz")[0]
+#VCFstem = "test/test_all_chr"
 # use stem - add .vcf.gz to it
 #VCFstem = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode"
 
 leafcutter_dir = "/sc/orga/projects/ad-omics/data/software/leafcutter/"
+
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
-GTFexons = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode_hg38_v30_all_exons.txt.gz" # can it be gzipped?
+GTFexons = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode_hg38_v30_all_exons.txt.gz"
+
 #dataCode = "test"
 #sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 #genotypePCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
@@ -15,21 +21,12 @@ countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matr
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
 mode = config["mode"]
-
-print("hello!")
-print(mode)
-
-#mode = "sQTL"
-
-# currently set in config.yaml
-# but can be hardcoded in here as would not change
-#VCF = config["VCF"]
-#GTF = config["GTF"]
-#countMatrixRData = config["countMatrixRData"]
+GTF = config["GTF"]
+countMatrixRData = config["countMatrixRData"]
 
 
 dataCode = config["dataCode"]
-sampleKey = config["sampleKey"]
+sample_key = config["sampleKey"]
 genotypePCs = config["genotypePCs"]
 covariateFile = config["covariateFile"]
 
@@ -43,14 +40,13 @@ print(dataCode)
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-PEER_values = [5] # a list so can have a range of different values
-chunk_number = 2 # at least as many chunks as there are chromosomes
+PEER_values = [15] # a list so can have a range of different values
+chunk_number = 22 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 PEER_values = config["PEER_values"]
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
-interaction = False
 
 if(mode == "eQTL"):
 	dataCode = dataCode + "_expression"
@@ -68,6 +64,11 @@ if(mode == "sQTL"):
 	final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values) #prefix + "_results.genes.significant.txt"	
 
 # if interaction requested then use TensorQTL and include script that matches interaction values to covariates and samples
+
+print(" * QTL pipeline")
+print(" * Data code is : %s " % dataCode)
+print(" * Mode selected is: %s" % mode)
+
 
 rule all:
 	input:
@@ -105,7 +106,7 @@ rule getExonsFromGTF:
 rule createGCTFiles:
 	input:
 		counts = countMatrixRData,
-		key = sampleKey,
+		key = sample_key,
 		gtf = outFolder + "collapsed.gtf"
 	output:
 		counts_gct_file = prefix + "_counts.gct",
@@ -134,6 +135,7 @@ rule VCF_chr_list:
 rule prepareSplicing:
 	input:
 		# expecting gzipped junction files with extension {sample}.junc.gz
+		sample_key = sample_key,
 		junction_file_list = junctionFileList, # from config - a file listing full paths to each junction file 
 		exon_list = GTF + ".exons.txt.gz", # hg38 exons from gencode v30 with gene_id and gene_name
 		genes_gtf = GTF # full GTF or just gene starts and ends?
@@ -149,7 +151,7 @@ rule prepareSplicing:
 		leafcutter_pcs = prefix + ".leafcutter.PCs.txt"
 	params: 
 		leafcutter_dir = "scripts/leafcutter/", # all leafcutter scripts hosted in a folder - some had to be converted py2 -> py3
-		script = "scripts/cluster_prepare_fastqtl.py",
+		script = "scripts/sqtl_prepare_splicing.py",
 		min_clu_reads = 30,
 		min_clu_ratio = 0.001,
 		max_intron_len = 500000,
@@ -162,7 +164,8 @@ rule prepareSplicing:
             	" {input.exon_list} "
             	" {input.genes_gtf} "
             	" {prefix} "
-            	" --min_clu_reads {params.min_clu_reads} "
+            	" {input.sample_key} "
+		" --min_clu_reads {params.min_clu_reads} "
             	" --min_clu_ratio {params.min_clu_ratio} "
             	" --max_intron_len {params.max_intron_len} "
             	" --num_pcs {params.num_pcs} " 
@@ -180,7 +183,7 @@ rule prepareExpression:
 		tpm_gct = prefix + "_tpm.gct",
 		counts_gct =  prefix + "_counts.gct",
 		gtf = outFolder + "collapsed.gtf",
-		sampleKey = sampleKey
+		sample_key = sample_key
 	output:
 		prefix + ".expression.bed.gz"
 	params:
@@ -188,7 +191,7 @@ rule prepareExpression:
 	shell:
 		"module load python/3.7.3;"
 		" python {params.script} {input.tpm_gct} {input.counts_gct} {input.gtf} "
-		" {input.sampleKey} {input.vcf_chr_list} {prefix} "
+		" {input.sample_key} {input.vcf_chr_list} {prefix} "
 		" --tpm_threshold 0.1 "
 		" --count_threshold 6 "
 		" --sample_frac_threshold 0.2 "
@@ -207,14 +210,20 @@ rule runPEER:
 		"ml R/3.6.0; "
 		"Rscript {params.script} {input} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} {params.num_peer}"
 
+if covariateFile != "":
+	covariate_string = " --add_covariates " + covariateFile 
+else:
+	covariate_string = ""
+
 rule combineCovariates:
 	input:
 		geno =	genotypePCs,
-		peer =	outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt",
-		covariates = covariateFile
+		peer =	outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
+		#covariates = covariateFile
 	output:
 		outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
 	params:
+		covariates = covariate_string,
 		num_peer = "{PEER_N}",
 		script = "scripts/combine_covariates.py",
 		logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
@@ -222,7 +231,7 @@ rule combineCovariates:
 	shell:
 		"python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
     		" --genotype_pcs {input.geno} "
-    		" --add_covariates {input.covariates}; "
+    		"{params.covariates} ;"
 		"mkdir {params.logNomFolder};"
 		"mkdir {params.logPerFolder};"
 

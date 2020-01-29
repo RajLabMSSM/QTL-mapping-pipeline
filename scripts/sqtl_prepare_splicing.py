@@ -13,6 +13,9 @@ import glob
 from sklearn.decomposition import PCA
 
 # jack humphrey - changes to original script by Francois Auget:
+
+# renamed script from cluster_prepare_fastqtl.py to sqtl_prepare_splicing.py
+# junc files are assumed not to be gzipped
 # junc files are produced by regtools, not bam2junc
 # clustering is done with leafcutter_cluster_regtools.py
 # added --checkChrom to clustering call to ignore any contig chromosome names
@@ -20,6 +23,10 @@ from sklearn.decomposition import PCA
 # all leafcutter scripts and map_genes.R script are assumed to be in the same folder (--leafcutter_dir)
 # line where glob looks for qq files was looking within --output_dir now looks in os.path.dirname(--prefix) - this is same as outFolder
 # swapped out write_bed function for the one in the eQTL expression prepare_bed.py script which works with python3
+
+# added sample_participant_lookup so that output leafcutter.bed.gz will have participant IDs, not sample IDs
+# junc_files folder is removed at the end of the script to save space
+# sorted.gz files from clustering, intermediate phenotype and bed files are also deleted.
 
 @contextlib.contextmanager
 def cd(cd_path):
@@ -91,6 +98,7 @@ if __name__=='__main__':
     parser.add_argument('exons', help='Exon definitions file, with columns: chr, start, end, strand, gene_id, gene_name')
     parser.add_argument('genes_gtf', help='Collapsed gene annotation in GTF format')
     parser.add_argument('prefix', help='Prefix for output files (sample set ID)')
+    parser.add_argument('sample_participant_lookup', help='Lookup table linking samples to participants')
     parser.add_argument('--min_clu_reads', default='50', type=str, help='Minimum number of reads supporting each cluster')
     parser.add_argument('--min_clu_ratio', default='0.001', type=str, help='Minimum fraction of reads in a cluster that support a junction')
     parser.add_argument('--max_intron_len', default='500000', type=str, help='Maximum intron length')
@@ -114,13 +122,24 @@ if __name__=='__main__':
         if not os.path.exists(junc_dir):
             os.mkdir(junc_dir)
         sample_ids = []
+        # read in sample participant lookup
+        sample_participant_lookup_s = pd.read_csv(args.sample_participant_lookup, sep='\t', index_col=0, dtype=str, squeeze=True)
+        # match sample_id to participant_id, use this as naming the junctions
+        # do on final leafcutter bed
         for f in junc_files:
             sample_id = os.path.split(f)[1].split('.')[0]
             sample_ids.append(sample_id)
             # shutil.move(f, os.path.join(junc_dir, sample_id+'.junc.gz'))
-            shutil.copy2(f, os.path.join(junc_dir, sample_id+'.junc.gz'))
-
-        subprocess.check_call('gunzip -f '+os.path.join(junc_dir, '*.junc.gz'), shell=True)
+            # no longer assume gzipped
+            #shutil.copy2(f, os.path.join(junc_dir, sample_id+'.junc'))
+        # rename samples using participant IDs from key
+        sample_df = pd.DataFrame( columns = sample_ids )
+        sample_df.rename(columns=sample_participant_lookup_s.to_dict(), inplace=True)
+        sample_ids = sample_df.columns
+        # copy junctions using new IDs	
+        for s,j in zip(sample_ids, junc_files):
+             shutil.copy2(j, os.path.join(junc_dir, s+'.junc'))
+        #subprocess.check_call('gunzip -f '+os.path.join(junc_dir, '*.junc'), shell=True)
         junc_files = sorted([os.path.join(junc_dir, i+'.junc') for i in sample_ids])
 
         print('  * running leafcutter clustering')
@@ -214,7 +233,7 @@ if __name__=='__main__':
         bed_df['#Chr'] = 'chr'+bed_df['#Chr'].astype(str)
         bed_df['ID'] = 'chr'+bed_df['ID']
 
-	# debugging - pickle bed_df
+        # debugging - pickle bed_df
         #filehandler = open("bed_df.pickle", mode = 'wb')	
         #pickle.dump(bed_df, filehandler)
         print('    ** assigning introns to gene mapping(s)')
@@ -245,12 +264,18 @@ if __name__=='__main__':
         print('  * calculating PCs')
         pca = PCA(n_components=args.num_pcs)
         pca.fit(bed_df[bed_df.columns[4:]])
-        pc_df = pd.DataFrame(pca.components_, index=['PC{}'.format(i) for i in range(1,11)],
+        pc_df = pd.DataFrame(pca.components_, index=['PC{}'.format(i) for i in range(1,args.num_pcs + 1)],
             columns=bed_df.columns[4:] )
-		#columns=['-'.join(i.split('-')[:2]) for i in bed_df.columns[4:]])
+        #columns=['-'.join(i.split('-')[:2]) for i in bed_df.columns[4:]])
         pc_df.index.name = 'ID'
         pc_df.to_csv(args.prefix+'.leafcutter.PCs.txt', sep='\t')
-
+	# clean up!
+	shutil.rmtree(junc_dir)
+	sorted_files = glob.glob("*sorted.gz")
+        misc_files = glob.glob( os.path.join(os.path.dirname(args.prefix), "_perind.counts.filtered.gz.phen_*" )
+	for fname in bed_files + sorted_files + misc_files:
+            if os.path.isfile(fname):
+                os.remove(fname)	
 print('['+datetime.now().strftime("%b %d %H:%M:%S")+'] done')
 
 
