@@ -136,7 +136,7 @@ if __name__=='__main__':
         sample_df = pd.DataFrame( columns = sample_ids )
         sample_df.rename(columns=sample_participant_lookup_s.to_dict(), inplace=True)
         sample_ids = sample_df.columns
-        # copy junctions using new IDs	
+        # copy junctions using new IDs
         for s,j in zip(sample_ids, junc_files):
              shutil.copy2(j, os.path.join(junc_dir, s+'.junc'))
         #subprocess.check_call('gunzip -f '+os.path.join(junc_dir, '*.junc'), shell=True)
@@ -234,7 +234,7 @@ if __name__=='__main__':
         bed_df['ID'] = 'chr'+bed_df['ID']
 
         # debugging - pickle bed_df
-        #filehandler = open("bed_df.pickle", mode = 'wb')	
+        #filehandler = open("bed_df.pickle", mode = 'wb')
         #pickle.dump(bed_df, filehandler)
         print('    ** assigning introns to gene mapping(s)')
         n = 0
@@ -260,7 +260,7 @@ if __name__=='__main__':
         gene_bed_df.rename(columns={i:'-'.join(i.split('-')[:2]) for i in gene_bed_df.columns[4:]}, inplace=True)
         write_bed(gene_bed_df, os.path.join(args.output_dir, args.prefix+'.leafcutter.bed'))
         pd.Series(group_s).sort_values().to_csv(os.path.join(args.output_dir, args.prefix+'.leafcutter.phenotype_groups.txt'), sep='\t')
-
+        
         print('  * calculating PCs')
         pca = PCA(n_components=args.num_pcs)
         pca.fit(bed_df[bed_df.columns[4:]])
@@ -269,13 +269,13 @@ if __name__=='__main__':
         #columns=['-'.join(i.split('-')[:2]) for i in bed_df.columns[4:]])
         pc_df.index.name = 'ID'
         pc_df.to_csv(args.prefix+'.leafcutter.PCs.txt', sep='\t')
-	# clean up!
-	shutil.rmtree(junc_dir)
-	sorted_files = glob.glob("*sorted.gz")
+        # clean up!
+        shutil.rmtree(junc_dir)
+        sorted_files = glob.glob("*sorted.gz")
         misc_files = glob.glob( os.path.join(os.path.dirname(args.prefix), "_perind.counts.filtered.gz.phen_*" )
-	for fname in bed_files + sorted_files + misc_files:
+        for fname in bed_files + sorted_files + misc_files:
             if os.path.isfile(fname):
-                os.remove(fname)	
+                os.remove(fname)    
 print('['+datetime.now().strftime("%b %d %H:%M:%S")+'] done')
 
 
