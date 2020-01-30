@@ -41,7 +41,7 @@ print(dataCode)
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
 PEER_values = [15] # a list so can have a range of different values
-chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
+chunk_number = 22 * 50 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 PEER_values = config["PEER_values"]
@@ -72,12 +72,12 @@ print(" * Mode selected is: %s" % mode)
 
 rule all:
     input:
-        final_output
+        #final_output
         #prefix + ".leafcutter.PCs.txt"
         #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
         #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
-        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
-        #expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
+        expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
+        expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 
 rule collapseGTF:
     input:
@@ -122,7 +122,8 @@ rule createGCTFiles:
 
 rule VCF_chr_list:
     input:
-        VCFstem + ".vcf.gz"
+        VCFstem + ".vcf.gz",
+        VCFstem + ".vcf.gz.tbi"
     output:
         outFolder + "vcf_chr_list.txt"
     shell:
