@@ -21,12 +21,13 @@ def gtf_to_bed(annotation_gtf, feature='gene', exclude_chrs=[]):
     start = []
     end = []
     gene_id = []
+    strand = []
     with open(annotation_gtf, 'r') as gtf:
         for row in gtf:
             row = row.strip().split('\t')
             if row[0][0]=='#' or row[2]!=feature: continue # skip header
             chrom.append(row[0])
-
+            strand.append(row[6])
             # TSS: gene start (0-based coordinates for BED)
             if row[6]=='+':
                 start.append(np.int64(row[3])-1)
@@ -39,7 +40,7 @@ def gtf_to_bed(annotation_gtf, feature='gene', exclude_chrs=[]):
 
             gene_id.append(row[8].split(';',1)[0].split(' ')[1].replace('"',''))
 
-    bed_df = pd.DataFrame(data={'chr':chrom, 'start':start, 'end':end, 'gene_id':gene_id}, columns=['chr', 'start', 'end', 'gene_id'], index=gene_id)
+    bed_df = pd.DataFrame(data={'chr':chrom, 'start':start, 'end':end, 'gene_id':gene_id, 'group_id':gene_id, 'strand':strand}, columns=['chr', 'start', 'end', 'gene_id', 'group_id', 'strand' ], index=gene_id)
     # drop rows corresponding to excluded chromosomes
     mask = np.ones(len(chrom), dtype=bool)
     for k in exclude_chrs:

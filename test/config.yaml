@@ -3,14 +3,15 @@ dataCode: test
 #sampleKey: "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 # samples with available junctions
 sampleKey: "test/test_sample_key.txt"
-genotypePCs: "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
-covariateFile: "test/test_wgs_covariates.txt" # as above
-PEER_values: 15
+genotypePCs: "test/test_ancestry_covariates.txt" # rows are PCs, columns are samples
+covariateFile: "" # as above
+PEER_values: 5
 # where the junctions are kept
 junctionFileList: "test/test_junction_file_list.txt"
 
 # these shouldn't change
 countMatrixRData: "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
 VCF: "test/test_all_chr.vcf.gz"
-GTF: "test/test.gtf" # cannot be gzipped
+GTF: "/sc/orga/projects/ad-omics/data/references//hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 
+mode: "sQTL"

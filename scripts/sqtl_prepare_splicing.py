@@ -160,14 +160,6 @@ if __name__=='__main__':
         subprocess.check_call('gzip {}_pooled'.format(args.prefix), shell=True)
         subprocess.check_call('gzip {}_refined'.format(args.prefix), shell=True)
 
-        print('  * mapping clusters to genes')
-        subprocess.check_call(
-            'Rscript' \
-                +' '+os.path.abspath(os.path.join(args.leafcutter_dir, 'map_clusters_to_genes.R')) \
-                +' '+os.path.join(args.output_dir, args.prefix+'_perind.counts.gz') \
-                +' '+args.exons \
-                +' '+args.prefix + '.leafcutter.clusters_to_genes.txt', shell=True)
-
         print('  * filtering counts')
         counts_df = pd.read_csv(os.path.join(args.output_dir, args.prefix+'_perind.counts.gz'), sep='\s+').set_index('chrom')
         calculate_frac = lambda x: float(x[0])/float(x[1]) if x[1]>0 else 0
@@ -198,6 +190,14 @@ if __name__=='__main__':
         filtered_counts_file = os.path.join(args.output_dir, args.prefix+'_perind.counts.filtered.gz')
         with gzip.open(filtered_counts_file, 'wt') as f:
             filtered_counts_df.to_csv(f, sep=' ')
+        # mapping clusters to genes should be done on the filtered junctions only
+        print('  * mapping clusters to genes')
+        subprocess.check_call(
+            'Rscript' \
+                +' '+os.path.abspath(os.path.join(args.leafcutter_dir, 'map_clusters_to_genes.R')) \
+                +' '+os.path.join(args.output_dir, args.prefix+'_perind.counts.filtered.gz') \
+                +' '+args.exons \
+                +' '+args.prefix + '.leafcutter.clusters_to_genes.txt', shell=True)
 
         print('  * preparing phenotype table')
         subprocess.check_call(
@@ -245,16 +245,22 @@ if __name__=='__main__':
             cluster_id = s[0]+':'+s[-1]
             if cluster_id in cluster2gene_dict:
                 gene_ids = cluster2gene_dict[cluster_id].split(',')
+                strand = cluster_id.split("_")[2]
                 for g in gene_ids:
-                    gi = r['ID']+':'+g
-                    gene_bed_df.append(tss_df.loc[g, ['chr', 'start', 'end']].tolist() + [gi] + r.iloc[4:].tolist())
+                    gi = r['ID'] + ':' + g
+                    # add g as group ID
+                    # add strand
+                    gene_bed_df.append(tss_df.loc[g, ['chr', 'start', 'end']].tolist() + [gi] + [g] + [strand] + r.iloc[4:].tolist())
                     group_s[gi] = g
             else:
                 n += 1
         if n>0:
             print('    ** discarded {} introns without gene mapping'.format(n))
         print('  * writing FastQTL inputs')
-        gene_bed_df = pd.DataFrame(gene_bed_df, columns=bed_df.columns)
+        # columns now include "gid" and "strand"
+        QTLtools_columns = list(bed_df.columns[0:4]) + ["gid"] + ["strand"] + list(bed_df.columns[4:])
+
+        gene_bed_df = pd.DataFrame(gene_bed_df, columns=QTLtools_columns)
         gene_bed_df = gene_bed_df.groupby('#Chr', sort=False, group_keys=False).apply(lambda x: x.sort_values('start'))
         # change sample IDs to participant IDs
         # this code was mangling my participant IDs

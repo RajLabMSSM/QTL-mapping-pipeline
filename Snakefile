@@ -10,7 +10,7 @@ VCFstem = VCF.split(".vcf.gz")[0]
 leafcutter_dir = "/sc/orga/projects/ad-omics/data/software/leafcutter/"
 
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
-GTFexons = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode_hg38_v30_all_exons.txt.gz"
+GTFexons = GTF + ".exons.txt.gz" 
 
 #dataCode = "test"
 #sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
@@ -40,11 +40,12 @@ print(dataCode)
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-PEER_values = [15] # a list so can have a range of different values
-chunk_number = 22 * 20 # at least as many chunks as there are chromosomes
+PEER_values = [5] # a list so can have a range of different values
+chunk_number = 2 #22 * 20 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 PEER_values = config["PEER_values"]
+
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
 
@@ -55,12 +56,14 @@ if(mode == "eQTL"):
     phenotype_matrix = prefix + ".expression.bed.gz"
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
+    grouping_param = ""
 if(mode == "sQTL"):
     dataCode = dataCode + "_splicing"
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".leafcutter.bed.gz" 
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt" #outFolder + ".leafcutter.PCs.txt"
+    grouping_param =" --grp-best "
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values) #prefix + "_results.genes.significant.txt" 
 
 # if interaction requested then use TensorQTL and include script that matches interaction values to covariates and samples
@@ -138,7 +141,7 @@ rule prepareSplicing:
         # expecting gzipped junction files with extension {sample}.junc.gz
         sample_key = sample_key,
         junction_file_list = junctionFileList, # from config - a file listing full paths to each junction file 
-        exon_list = GTF + ".exons.txt.gz", # hg38 exons from gencode v30 with gene_id and gene_name
+        exon_list = GTFexons, # hg38 exons from gencode v30 with gene_id and gene_name
         genes_gtf = GTF # full GTF or just gene starts and ends?
     output:
         counts = prefix + "_perind.counts.gz",
@@ -156,7 +159,7 @@ rule prepareSplicing:
         min_clu_reads = 30,
         min_clu_ratio = 0.001,
         max_intron_len = 500000,
-        num_pcs = 15 # must be at least the number of samples!
+        num_pcs = 10 # must be at least the number of samples!
     shell:  
         "ml R/3.6.0;"
         "ml tabix;"
@@ -233,8 +236,8 @@ rule combineCovariates:
         "python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
             " --genotype_pcs {input.geno} "
             "{params.covariates} ;"
-        "mkdir {params.logNomFolder};"
-        "mkdir {params.logPerFolder};"
+        "mkdir -p {params.logNomFolder};"
+        "mkdir -p {params.logPerFolder};"
 
 #Changes to QTLtools_nominal and QTLtools_permutation do the following
 #implements a do while loop to keep repeating the initial qtltools command to remove phenotypes without enough variants
@@ -254,19 +257,20 @@ rule QTLtools_nominal:
         chunk_num = "{CHUNK}",
         chunk_max = chunk_number
     shell:
-        "touch {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
-        "success=false;" #condition for do while loop
-        "until [ \"$success\" = true ]; "
-        "do {{"
+#        "touch {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
+#        "success=false;" #condition for do while loop
+#        "until [ \"$success\" = true ]; "
+#        "do {{"
         " {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
         " --nominal {params.pval_threshold} "
         "--out {output} --chunk {params.chunk_num} {params.chunk_max} "
-        " --normal --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
-        " && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
-        " || {{ grep 'Processing phenotype' {params.logNomFolder}/Chunk{params.chunk_num}_log.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
-        "sed -n \"$(wc -l < {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
-        ">> {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
-        "if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
+        " --normal --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt " # > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
+#        " && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
+#        " || {{ grep 'Processing phenotype' {params.logNomFolder}/Chunk{params.chunk_num}_log.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
+#        "sed -n \"$(wc -l < {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
+#        ">> {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
+#        "if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
+
 
 rule QTLtools_permutation:
     input:
@@ -285,6 +289,7 @@ rule QTLtools_permutation:
         "touch {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
         "success=false;" #condition for do while loop
         "until [ \"$success\" = true ]; do {{ {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
+        " {grouping_param} " # for sQTLs - permute by gene
         " --permute {params.permutations} "
         "--out {output} --chunk {params.chunk_num} {params.chunk_max} "
         " --normal --exclude-phenotypes {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log.txt"
