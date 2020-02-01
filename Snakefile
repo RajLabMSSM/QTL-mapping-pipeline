@@ -1,7 +1,8 @@
 
-VCFstem = "test/test_all_chr"
+#VCFstem = "test/test_all_chr"
 # use stem - add .vcf.gz to it
 #VCFstem = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode"
+VCFstem = "input_files/CGND_311JG_GRM_WGS_2019-06-19_EUR_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted_MAFfilter1percentv2.recode"
 
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 #dataCode = "test"
@@ -28,7 +29,7 @@ prefix = outFolder + dataCode
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-PEER_values = [5] # a list so can have a range of different values
+#PEER_values = [5] # a list so can have a range of different values
 chunk_number = 2 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
@@ -41,7 +42,7 @@ shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/
 rule all:
 	input:
 		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
-		expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
+		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
 		#expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
 		#expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
 
@@ -76,9 +77,11 @@ rule VCF_chr_list:
 	input:
 		VCFstem + ".vcf.gz"
 	output:
-		outFolder + "vcf_chr_list.txt"
+		chrList = VCFstem + ".chr_list.txt",
+		tbi = VCFstem + ".vcf.gz.tbi"
 	shell:
-		"for i in {input}; do tabix -l $i; done > {output}"
+		"tabix {input};"
+		"tabix -l {input} > {output.chrList}"
 
 # tensorQTL requires genotypes in PLINK format
 # convert using plink2
@@ -87,7 +90,8 @@ rule VCF_chr_list:
 # should go back to at some point
 rule VCFtoPLINK:
 	input:
-		VCFstem + ".vcf.gz"
+		vcf = VCFstem + ".vcf.gz",
+		tbi = VCFstem + ".vcf.gz.tbi"
 	output:
 		VCFstem + ".fam"
 	shell:
@@ -95,7 +99,7 @@ rule VCFtoPLINK:
 		"plink2 --make-bed "
     		"--output-chr chrM "
 		"--max-alleles 2 "
-    		"--vcf {input} "
+    		"--vcf {input.vcf} "
     		"--out {VCFstem} "
 
 rule tensorQTL_cis:
@@ -131,7 +135,7 @@ rule tensorQTL_cis_nominal:
 
 rule prepareExpression:
 	input:
-		vcf_chr_list = outFolder + "vcf_chr_list.txt",
+		vcf_chr_list = VCFstem + ".chr_list.txt",
 		tpm_gct = prefix + "_tpm.gct",
 		counts_gct =  prefix + "_counts.gct",
 		gtf = outFolder + "collapsed.gtf",
@@ -178,8 +182,8 @@ rule combineCovariates:
 		"python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
     		" --genotype_pcs {input.geno} "
     		" --add_covariates {input.covariates}; "
-		"mkdir {params.logNomFolder};"
-		"mkdir {params.logPerFolder};"
+		"if [ ! -d {params.logNomFolder} ]; then mkdir {params.logNomFolder}; fi;"
+		"if [ ! -d {params.logPerFolder} ]; then mkdir {params.logPerFolder}; fi"
 
 #Changes to QTLtools_nominal and QTLtools_permutation do the following
 #implements a do while loop to keep repeating the initial qtltools command to remove phenotypes without enough variants

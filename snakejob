@@ -63,6 +63,7 @@ bsub=("bsub -K -J $jname:{rule}:{wildcards}"
 "-q {cluster.queue} "
 "-n {cluster.cores} -R \"span[hosts=1] select[mem>{cluster.mem}]"
 "rusage[mem={cluster.mem}]\" -W {cluster.time} -L /bin/bash"
+" {cluster.gpuString} "
 "-oo cluster/{rule}:{wildcards}.stdout"
 "-eo cluster/{rule}:{wildcards}.stderr < ")
 

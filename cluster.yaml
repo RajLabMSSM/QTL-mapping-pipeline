@@ -1,12 +1,23 @@
 __default__:
-  #partition: chimera
   queue: express
   cores: 1
-  mem: 3750
+  mem: 3000
+  gpuString: ""
   time: '120'
   name: $(basename $(pwd)):{rule}:{wildcards}
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
+tensorQTL_cis:
+   queue: gpu
+   cores: 4
+   mem: 12000
+   #gpuString: |
+    #  -R "gpu rusage[ngpus_excl_p=1]" -R v100
+tensorQTL_cis_nominal:
+   queue: gpu
+   cores: 4
+   mem: 12000
+#gpuString: "-R \"gpu rusage[ngpus_excl_p=1]\" -R v100 "
 # extractJunctions:
 #   time: '120:00'
 #   cores: 1
