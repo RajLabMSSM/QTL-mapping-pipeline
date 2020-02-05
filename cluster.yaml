@@ -7,6 +7,13 @@ __default__:
   name: $(basename $(pwd)):{rule}:{wildcards}
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
+prepareSplicing:
+  cores: 4
+  mem: 3000
+prepareExpression:
+  cores: 4
+  mem: 3000
+
 # extractJunctions:
 #   time: '120:00'
 #   cores: 1
