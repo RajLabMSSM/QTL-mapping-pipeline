@@ -1,3 +1,8 @@
+# for now set mode in the script
+
+#set by snakejob
+mode = config["mode"]
+#mode = "eQTL"
 
 # assume VCF is gzipped
 VCF = config["VCF"]
@@ -20,9 +25,9 @@ countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matr
 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
-mode = config["mode"]
-GTF = config["GTF"]
-countMatrixRData = config["countMatrixRData"]
+#mode = config["mode"]
+#GTF = config["GTF"]
+#countMatrixRData = config["countMatrixRData"]
 
 
 dataCode = config["dataCode"]
@@ -40,8 +45,8 @@ print(dataCode)
 
 # hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-PEER_values = [5] # a list so can have a range of different values
-chunk_number = 2 #22 * 20 # at least as many chunks as there are chromosomes
+#iPEER_values = [5] # a list so can have a range of different values
+chunk_number = 22 * 10 #22 * 20 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 PEER_values = config["PEER_values"]
@@ -58,6 +63,7 @@ if(mode == "eQTL"):
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
     grouping_param = ""
 if(mode == "sQTL"):
+    PEER_values = [15]
     dataCode = dataCode + "_splicing"
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
@@ -86,7 +92,7 @@ rule collapseGTF:
     input:
         GTF
     output:
-        outFolder + "collapsed.gtf"
+        "results/collapsed.gtf"
     params:
         script = "scripts/collapse_annotation.py"
     shell:
@@ -110,7 +116,7 @@ rule createGCTFiles:
     input:
         counts = countMatrixRData,
         key = sample_key,
-        gtf = outFolder + "collapsed.gtf"
+        gtf = "results/collapsed.gtf"
     output:
         counts_gct_file = prefix + "_counts.gct",
         tpm_gct_file = prefix + "_tpm.gct"
@@ -125,12 +131,12 @@ rule createGCTFiles:
 
 rule VCF_chr_list:
     input:
-        VCFstem + ".vcf.gz",
-        VCFstem + ".vcf.gz.tbi"
+        VCF = VCFstem + ".vcf.gz",
+        index = VCFstem + ".vcf.gz.tbi"
     output:
-        outFolder + "vcf_chr_list.txt"
+        "results/vcf_chr_list.txt"
     shell:
-        "for i in {input}; do tabix -l $i; done > {output}"
+        "tabix -l {input.VCF} > {output}"
 
 # script from GTEX pipeline
 # performs leafcutter clustering
@@ -183,10 +189,10 @@ rule prepareSplicing:
 # then add PEER factors to known covariates
 rule prepareExpression:
     input:
-        vcf_chr_list = outFolder + "vcf_chr_list.txt",
+        vcf_chr_list = "results/vcf_chr_list.txt",
         tpm_gct = prefix + "_tpm.gct",
         counts_gct =  prefix + "_counts.gct",
-        gtf = outFolder + "collapsed.gtf",
+        gtf = "results/collapsed.gtf",
         sample_key = sample_key
     output:
         prefix + ".expression.bed.gz"
@@ -264,7 +270,8 @@ rule QTLtools_nominal:
         " {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
         " --nominal {params.pval_threshold} "
         "--out {output} --chunk {params.chunk_num} {params.chunk_max} "
-        " --normal --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt " # > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
+        " --normal "
+        #" --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt " # > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
 #        " && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
 #        " || {{ grep 'Processing phenotype' {params.logNomFolder}/Chunk{params.chunk_num}_log.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
 #        "sed -n \"$(wc -l < {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
@@ -286,18 +293,19 @@ rule QTLtools_permutation:
         chunk_num = "{CHUNK}",
         chunk_max = chunk_number
     shell:
-        "touch {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
-        "success=false;" #condition for do while loop
-        "until [ \"$success\" = true ]; do {{ {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
+        #"touch {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
+        #"success=false;" #condition for do while loop
+        #"until [ \"$success\" = true ]; do "
+        " {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
         " {grouping_param} " # for sQTLs - permute by gene
         " --permute {params.permutations} "
         "--out {output} --chunk {params.chunk_num} {params.chunk_max} "
-        " --normal --exclude-phenotypes {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log.txt"
-        " && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
-        " || {{ grep 'Processing phenotype' {params.logPerFolder}/Chunk{params.chunk_num}_log.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
-        "sed -n \"$(wc -l < {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
-        ">> {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
-        "if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
+        " --normal " #--exclude-phenotypes {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log.txt"
+        #" && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
+        #" || {{ grep 'Processing phenotype' {params.logPerFolder}/Chunk{params.chunk_num}_log.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
+        #"sed -n \"$(wc -l < {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
+        #">> {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
+        #"if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
 
 rule summariseQTLtoolsResults:
     input:
