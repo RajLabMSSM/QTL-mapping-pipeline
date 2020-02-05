@@ -5,6 +5,9 @@ suppressMessages(library(foreach, quietly=TRUE))
 
 # leafcutter functions:
 
+# now takes strand into account - match on strand!
+
+
 #' Make a data.frame of meta data about the introns
 #' @param introns Names of the introns
 #' @return Data.frame with chr, start, end, cluster id
@@ -15,6 +18,8 @@ get_intron_meta <- function(introns) {
   intron_meta <- as.data.frame(intron_meta, stringsAsFactors=FALSE)
   intron_meta$start <- as.numeric(intron_meta$start)
   intron_meta$end <- as.numeric(intron_meta$end)
+  # add in strand info
+  intron_meta$strand <- do.call(rbind, strsplit(intron_meta$clu, "_"))[,3]
   intron_meta
 }
 
@@ -32,11 +37,11 @@ map_clusters_to_genes <- function(intron_meta, exons_table) {
 
     exons_chr$temp <- exons_chr$start
     intron_chr$temp <- intron_chr$end
-    three_prime_matches <- inner_join( intron_chr, exons_chr, by="temp")
+    three_prime_matches <- inner_join( intron_chr, exons_chr, by=c("strand", "temp") )
 
     exons_chr$temp <- exons_chr$end
     intron_chr$temp <- intron_chr$start
-    five_prime_matches <- inner_join( intron_chr, exons_chr, by="temp")
+    five_prime_matches <- inner_join( intron_chr, exons_chr, by=c( "strand", "temp") )
 
     all_matches <- rbind(three_prime_matches, five_prime_matches)[ , c("clu", "gene_name")]
 
