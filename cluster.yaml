@@ -3,17 +3,35 @@ __default__:
   queue: express
   cores: 1
   mem: 3750
-  time: '600'
+  time: '60'
   name: $(basename $(pwd)):{rule}:{wildcards}
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
+QTLtools_nominal:
+    cores: 1
+    mem: 3750
+    time: '10'
+QTLtools_permutation:
+    cores: 1
+    mem: 3750
+    time: '30'
 prepareSplicing:
-  cores: 4
-  mem: 3000
+    cores: 4
+    mem: 3750
+    time: 60
+tensorQTL_cis:
+   queue: gpu
+   cores: 4
+   mem: 12000
+   #gpuString: |
+   #    #  -R "gpu rusage[ngpus_excl_p=1]" -R v100
+tensorQTL_cis_nominal:
+    queue: gpu
+    cores: 4
+    mem: 12000
 prepareExpression:
   cores: 4
   mem: 3000
-
 # extractJunctions:
 #   time: '120:00'
 #   cores: 1

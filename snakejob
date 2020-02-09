@@ -23,15 +23,17 @@ fi
 config='config.yaml'
 snakefile='Snakefile'
 dryrun=""
+mode="eQTL"
 
 print_usage() {
-  printf "Usage: ./snakejob [-h] [-c] config.yaml [-s] Snakefile\nOptions:\n\t-c config file\n\t-s Snakefile\n\t-n dry run mode\n"
+  printf "Usage: ./snakejob [-h] [-c] config.yaml [-s] Snakefile\nOptions:\n\t-c config file\n\t-s Snakefile\n\t-n dry run mode\n\t-m mode [eQTL/sQTL]\n"
 }
 
-while getopts 'c:s:nh' flag; do
+while getopts 'c:s:m:nh' flag; do
   case "${flag}" in
     c) config="${OPTARG}" ;;
     s) snakefile="${OPTARG}" ;;
+    m) mode="${OPTARG}" ;;
     n) dryrun="-n" ;;
     h) print_usage
        exit 1 ;;
@@ -68,8 +70,9 @@ bsub=("bsub -K -J $jname:{rule}:{wildcards}"
 
 snakemake -u cluster.yaml --cluster-sync "${bsub[*]}" \
   --local-cores 4 --max-jobs-per-second 5 \
-  --jobs 100 \
+  --jobs 1000 \
   -s $snakefile --configfile $config \
-  --latency-wait 30 --rerun-incomplete\
+  --config mode=$mode \
+  --latency-wait 30 --rerun-incomplete \
   $dryrun
 
