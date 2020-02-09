@@ -61,6 +61,7 @@ if(mode == "eQTL"):
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
     grouping_param = ""
 if(mode == "sQTL"):
+    PEER_values = [15]
     dataCode = dataCode + "_splicing"
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
