@@ -1,66 +1,54 @@
-# for now set mode in the script
-
-#set by snakejob
-mode = config["mode"]
-#mode = "eQTL"
-
 # QTL mapping pipeline
 # Jack Humphrey 
-
-# assume VCF is gzipped
-VCF = config["VCF"]
-
-VCFstem = VCF.split(".vcf.gz")[0]
-#VCFstem = "test/test_all_chr"
-# use stem - add .vcf.gz to it
-#VCFstem = "/sc/orga/projects/als-omics/QTL/QTL-mapping-pipeline/vcf_file/CGND_311JG_GRM_WGS_2019-06-19_chrAll.recalibrated_variants_Biallelic_QCFinished_sorted.recode"
+import glob
+import os
 
 leafcutter_dir = "/sc/orga/projects/ad-omics/data/software/leafcutter/"
-
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 GTFexons = GTF + ".exons.txt.gz" 
-
-#dataCode = "test"
-#sampleKey  = "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
-#genotypePCs = "test/test_genotype_PCs.txt" # rows are PCs, columns are samples
-# should be in config file
-countMatrixRData = "/sc/orga/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
-
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
-#mode = config["mode"]
-#GTF = config["GTF"]
-#countMatrixRData = config["countMatrixRData"]
-
-
-dataCode = config["dataCode"]
-sample_key = config["sampleKey"]
-genotypePCs = config["genotypePCs"]
-covariateFile = config["covariateFile"]
-
-junctionFileList = config["junctionFileList"]
-
-print(dataCode)
-
-# derived variables
-#outFolder = "results/" + dataCode + "/"
-#prefix = outFolder + dataCode
-
-# hardcoded variables
 nPerm = 10000 # number of permutations of the permutation pass
-chunk_number = 22 * 40 # at least as many chunks as there are chromosomes
+chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
-
-# read in PEER values from config
-PEER_values = config["PEER_values"]
 
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
+# common config variables - all modes require these
+mode = config["mode"]
+dataCode = config["dataCode"]
+VCF = config["VCF"]
+VCFstem = VCF.split(".vcf.gz")[0]
+sample_key = ""
+genotypePCs = ""
+covariateFile = ""
+PEER_values = ""
+countMatrixRData = "" 
+junctionFileList = ""
+phenotype_matrix = ""
+bamFolder = ""
+bamSuffix = ""
+BAM_SAMPLES = []
+
+if(mode == "mbv"):
+    bamFolder = config["bamFolder"]
+    bamSuffix = config["bamSuffix"]
+    BAM_SAMPLES = [os.path.basename(x).strip(bamSuffix) for x in glob.glob(bamFolder + "/*" + bamSuffix)]
+    dataCode = dataCode + "_mbv"
+    outFolder = "results/" + dataCode + "/"
+    prefix = outFolder + dataCode
+    final_output = prefix + "_mbv_summary.txt"
+else:
+    sample_key = config["sampleKey"]
+    genotypePCs = config["genotypePCs"]
+    covariateFile = config["covariateFile"]
+    PEER_values = config["PEER_values"]
 
 if(mode == "eQTL"):
     dataCode = dataCode + "_expression"
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
+    countMatrixRData = config["countMatrixRData"]
     phenotype_matrix = prefix + ".expression.bed.gz"
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
@@ -68,6 +56,7 @@ if(mode == "eQTL"):
 if(mode == "sQTL"):
     PEER_values = [15]
     dataCode = dataCode + "_splicing"
+    junctionFileList = config["junctionFileList"]
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".leafcutter.bed.gz" 
@@ -77,20 +66,22 @@ if(mode == "sQTL"):
 
 # if interaction requested then use TensorQTL and include script that matches interaction values to covariates and samples
 
-print(" * QTL pipeline")
+print(" * QTL-mapping pipeline *")
+print(" Jack Humphrey 2019-2020 ")
 print(" * Data code is : %s " % dataCode)
 print(" * Mode selected is: %s" % mode)
 
 
 rule all:
     input:
-        #final_output
+        final_output
         #prefix + ".leafcutter.PCs.txt"
         #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
         #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
-        expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
-        expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range),
-        expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz", PEER_N = PEER_values)
+        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
+        #expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range),
+        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz", PEER_N = PEER_values)
+
 rule collapseGTF:
     input:
         GTF
@@ -312,23 +303,61 @@ rule QTLtools_permutation:
 
 rule summariseQTLtoolsResults:
     input:
-        expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHUNK = chunk_range)
+        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHUNK = chunk_range),
+        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
     output:
         full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
         full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.full.txt.gz",
         sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
     params:
-        nominal_files = outFolder + "peer{PEER_N}/" + dataCode + "*_peer{PEER_N}*nominals.txt",
-        permutation_files = outFolder + "peer{PEER_N}/" + dataCode + "*_peer{PEER_N}*permutations.txt",
+        #nominal_files = outFolder + "peer{PEER_N}/" + dataCode + "*_peer{PEER_N}*nominals.txt",
+        #permutation_files = outFolder + "peer{PEER_N}/" + dataCode + "*_peer{PEER_N}*permutations.txt",
         script = "scripts/runFDR_cis.R",
         file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
         #logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
         #logPerFolder = outFolder + "peer{PEER_N}/logPerFolder"
     shell:
         "ml R/3.6.0;"
-        "cat {params.nominal_files} | gzip -c > {output.full_nom};"
-        "cat {params.permutation_files} | gzip -c > {output.full_perm};"
+        "cat {input.nominal_files} | gzip -c > {output.full_nom};"
+        "cat {input.permutation_files} | gzip -c > {output.full_perm};"
         "Rscript {params.script} {output.full_perm} 0.05 {params.file_prefix};"
+
+## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
+# THIS SHOULD BE RUN BEFORE QTL MAPPING TO CHECK FOR SAMPLE SWAPS
+# do on Chromosome 1 - big enough to properly identify sample swaps, hopefully
+
+# index each bam file if not already
+rule indexBam:
+    input:
+        bamFolder + "{sample}.bam"
+    output:
+        bamFolder + "{sample}.bam.bai"
+    shell:
+        "ml samtools/1.9;"
+        "samtools index {input}"
+
+# run match BAM to variants
+rule matchBAM2VCF:
+    input:
+        bam = bamFolder + "{sample}.bam",
+        vcf = VCF
+    output:
+        outFolder + "output/{sample}.bamstat.txt"
+    shell:
+        "ml qtltools/1.2;"
+        "QTLtools mbv --bam {input.bam} --vcf {input.vcf} --filter-mapping-quality 150 --out {output}"
+
+rule summariseResults:
+    input:
+        files = expand(outFolder + "output/{sample}.bamstat.txt", sample = BAM_SAMPLES)
+    output:
+        prefix + "_mbv_summary.txt"
+    shell:
+        "set +o pipefail;"
+        "for i in {input.files};"
+        "do cat $i | sort -k9nr,10nr | head -1 | awk -v i=$i \'{{print i, $0}}\'  ;"
+        "done > {output};"
+
 
         #summarizes removed chunks/genotypes
 #        "touch {params.logNomFolder}/removed_genotypes_chunks.txt;"
@@ -375,7 +404,7 @@ rule summariseQTLtoolsResults:
        # "rm {params.logPerFolder}/removed_phenotypes_chunks.txt;"
        # "rm {params.logPerFolder}/removed_phenotypes_loci.txt;"
 
-## TENSORQTL RULES
+## TENSORQTL -----------------------------------------------------------------------
 
 # tensorQTL requires genotypes in PLINK format
 # convert using plink2
