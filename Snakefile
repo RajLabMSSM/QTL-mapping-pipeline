@@ -303,19 +303,15 @@ rule QTLtools_permutation:
 
 rule summariseQTLtoolsResults:
     input:
-        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHUNK = chunk_range),
-        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range)
+        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range),
+        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHUNK = chunk_range)
     output:
         full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
-        full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.full.txt.gz",
+        full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.permutation.full.txt.gz",
         sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
     params:
-        #nominal_files = outFolder + "peer{PEER_N}/" + dataCode + "*_peer{PEER_N}*nominals.txt",
-        #permutation_files = outFolder + "peer{PEER_N}/" + dataCode + "*_peer{PEER_N}*permutations.txt",
         script = "scripts/runFDR_cis.R",
         file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
-        #logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
-        #logPerFolder = outFolder + "peer{PEER_N}/logPerFolder"
     shell:
         "ml R/3.6.0;"
         "cat {input.nominal_files} | gzip -c > {output.full_nom};"

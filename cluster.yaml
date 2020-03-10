@@ -15,6 +15,10 @@ QTLtools_permutation:
     cores: 1
     mem: 3750
     time: '30'
+summariseQTLtoolsResults:
+    cores: 8
+    mem: 3750
+    time: '60'
 prepareSplicing:
     cores: 4
     mem: 3750

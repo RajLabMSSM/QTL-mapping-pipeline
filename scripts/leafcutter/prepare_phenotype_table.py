@@ -86,10 +86,11 @@ def main(ratio_file, pcs=50):
 
         # If ratio is missing for over 40% of the samples, skip
         if tmpvalRow.count("NA") > len(tmpvalRow)*0.4:
+            print("matrix has high missing data")
             continue
 
         ave = np.mean(aveReads)
-
+        print("average reads:", ave)
         # Set missing values as the mean of all values
         for c in tmpvalRow:
             if c == "NA": valRow.append(ave)
@@ -115,9 +116,13 @@ def main(ratio_file, pcs=50):
                 
     for i in fout:
         fout[i].close()
-
+    
     # qqnorms on the columns
     matrix = np.array(valRows)
+    # weird bug here
+    print(matrix)
+    print(len(matrix[0,:]) )
+    print(matrix[0,:])
     for i in range(len(matrix[0,:])):
         matrix[:,i] = qqnorm(matrix[:,i])
         
