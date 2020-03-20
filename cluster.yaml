@@ -3,26 +3,26 @@ __default__:
   queue: express
   cores: 1
   mem: 3750
-  time: '60'
+  time: '120'
   name: $(basename $(pwd)):{rule}:{wildcards}
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
 QTLtools_nominal:
     cores: 1
     mem: 3750
-    time: '10'
+    time: '60'
 QTLtools_permutation:
     cores: 1
     mem: 3750
-    time: '30'
-summariseQTLtoolsResults:
-    cores: 8
-    mem: 3750
     time: '60'
+summariseQTLtoolsResults:
+    cores: 16
+    mem: 3750
+    time: '360'
 prepareSplicing:
     cores: 4
     mem: 3750
-    time: 60
+    time: 120
 tensorQTL_cis:
    queue: gpu
    cores: 4

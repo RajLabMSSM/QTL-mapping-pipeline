@@ -9,7 +9,7 @@ GTFexons = GTF + ".exons.txt.gz"
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
 nPerm = 10000 # number of permutations of the permutation pass
-chunk_number = 22 * 10 # at least as many chunks as there are chromosomes
+chunk_number = 22 * 40 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
@@ -45,6 +45,7 @@ else:
     PEER_values = config["PEER_values"]
 
 if(mode == "eQTL"):
+    #PEER_values = [15,20,25,30]
     dataCode = dataCode + "_expression"
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
@@ -54,7 +55,7 @@ if(mode == "eQTL"):
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
     grouping_param = ""
 if(mode == "sQTL"):
-    PEER_values = [15]
+    PEER_values = [15,20,25,30]
     dataCode = dataCode + "_splicing"
     junctionFileList = config["junctionFileList"]
     outFolder = "results/" + dataCode + "/"
