@@ -55,7 +55,7 @@ if(mode == "eQTL"):
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
     grouping_param = ""
 if(mode == "sQTL"):
-    PEER_values = [15,20,25,30]
+    #PEER_values = [15,20,25,30]
     dataCode = dataCode + "_splicing"
     junctionFileList = config["junctionFileList"]
     outFolder = "results/" + dataCode + "/"
@@ -304,19 +304,22 @@ rule QTLtools_permutation:
 
 rule summariseQTLtoolsResults:
     input:
-        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range),
-        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', PEER_N = PEER_values, CHUNK = chunk_range)
+        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.nominals.txt', CHUNK = chunk_range, allow_missing=True),
+        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', CHUNK = chunk_range, allow_missing=True)
     output:
         full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
         full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.permutation.full.txt.gz",
         sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
     params:
+        nominal_wildcard = outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk*nominals.txt',
+        permutation_wildcard  = outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk*permutations.txt', 
         script = "scripts/runFDR_cis.R",
         file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
+        # cat together all nominal and permutation files
     shell:
         "ml R/3.6.0;"
-        "cat {input.nominal_files} | gzip -c > {output.full_nom};"
-        "cat {input.permutation_files} | gzip -c > {output.full_perm};"
+        "cat {params.nominal_wildcard} | gzip -c > {output.full_nom};"
+        "cat {params.permutation_wildcard} | gzip -c > {output.full_perm};"
         "Rscript {params.script} {output.full_perm} 0.05 {params.file_prefix};"
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
