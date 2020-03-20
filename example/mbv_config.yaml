@@ -1,0 +1,5 @@
+mode: "mbv"
+bamFolder: "bams/"
+bamSuffix: ".bam"
+dataCode: "all_samples"
+VCF: "/sc/orga/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.vcf.gz"
