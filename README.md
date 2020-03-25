@@ -92,7 +92,7 @@ The QTL-mapping-pipeline currently supports 3 modes of execution:
 The mode of execution is set by the `mode` variable. This can either be hardcoded in your config.yaml or can be set when you run snakemake using:
 
 ```
-snakemake -S Snakefile --configfile config.yaml --config mode=<mode>
+snakemake -s Snakefile --configfile config.yaml --config mode=<mode>
 ```
 
 The _mbv_ mode requires a different config.yaml, an example of which is in `example/`. It requires the following:
