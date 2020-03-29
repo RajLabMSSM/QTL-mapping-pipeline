@@ -13,11 +13,10 @@ Jack
 
 ## conda recipe
 
+YAML file is now in the repo 
+
 ```
-conda create -c bioconda -c conda-forge -n QTL-pipeline python=3.7 snakemake=5.10.0 tabix=0.2.5 bcftools=1.9
-pip install feather-format
-pip install bx-python
-pip install scipy
+conda env create -f QTL-pipeline.yml
 ```
 
 ## running on test data
