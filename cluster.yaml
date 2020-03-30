@@ -10,11 +10,15 @@ __default__:
 QTLtools_nominal:
     cores: 1
     mem: 3750
-    time: '60'
+    time: '100'
 QTLtools_permutation:
     cores: 1
     mem: 3750
-    time: '60'
+    time: '100'
+runPEER:
+    cores: 1
+    mem: 3750
+    time: '240'
 summariseQTLtoolsResults:
     cores: 16
     mem: 3750
