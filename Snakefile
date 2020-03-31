@@ -3,6 +3,8 @@
 import glob
 import os
 
+interaction = True
+interaction_name = "disease"
 leafcutter_dir = "/sc/orga/projects/ad-omics/data/software/leafcutter/"
 GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 GTFexons = GTF + ".exons.txt.gz" 
@@ -12,7 +14,7 @@ nPerm = 10000 # number of permutations of the permutation pass
 chunk_number = 22 * 40 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
-shell.prefix('export PS1="";source activate snakemake; ml qtltools/1.2; ml R/3.6.0;')
+shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
 # common config variables - all modes require these
 mode = config["mode"]
@@ -44,8 +46,9 @@ else:
     covariateFile = config["covariateFile"]
     PEER_values = config["PEER_values"]
 
+# Expression QTLs - uses expression from RSEM and tximport
 if(mode == "eQTL"):
-    PEER_values = [10]
+    PEER_values = [30]
     dataCode = dataCode + "_expression"
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
@@ -54,6 +57,8 @@ if(mode == "eQTL"):
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
     grouping_param = ""
+
+# Splicing QTLs - uses junctions from regtools
 if(mode == "sQTL"):
     PEER_values = [15]
     dataCode = dataCode + "_splicing"
@@ -64,6 +69,36 @@ if(mode == "sQTL"):
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt" #outFolder + ".leafcutter.PCs.txt"
     grouping_param =" --grp-best "
     final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values) #prefix + "_results.genes.significant.txt" 
+
+# interaction expression QTLs
+# requires an interaction_file and an interaction_name in the config.yaml
+if(mode == "ieQTL"):
+    PEER_values = config["PEER_values"]
+    interaction_name = config["interaction_name"]
+    interaction_file = config["interaction_file"]
+    dataCode = dataCode + "_expression" + "_interaction_" + interaction_name
+    outFolder = "results/" + dataCode + "/"
+    prefix = outFolder + dataCode
+    phenotype_matrix = prefix + ".expression.bed.gz"
+    phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
+    final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values)
+    countMatrixRData = config["countMatrixRData"]
+    internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
+ 
+# interaction splicing QTLs
+if(mode == "ieQTL"):
+    PEER_values = config["PEER_values"]
+    interaction_name = config["interaction_name"]
+    interaction_file = config["interaction_file"]
+    dataCode = dataCode + "_splicing" + "_interaction_" + interaction_name
+    outFolder = "results/" + dataCode + "/"
+    prefix = outFolder + dataCode
+    junctionFileList = config["junctionFileList"]
+    phenotype_matrix = prefix + ".leafcutter.bed.gz"
+    grouping_param =" --grp-best " # is this the same for tensorQTL? probably not
+    phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
+    final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values)
+    internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
 
 # if interaction requested then use TensorQTL and include script that matches interaction values to covariates and samples
 
@@ -202,6 +237,31 @@ rule prepareExpression:
         " --sample_frac_threshold 0.2 "
         " --normalization_method tmm "
 
+# tensorQTL expects fastQTL formatted phenotype files
+# these don't include group info
+# therefore take the phenotype file from QTLtools and strip out group info into a separate file
+# this group info table should be two columns - phenotype and group
+rule prepareExpressionTensorQTL:
+    input:
+        pheno = prefix + ".expression.bed.gz"
+    output:
+        pheno = prefix + ".phenotype.tensorQTL.bed.gz",
+        group = prefix + ".group.tensorQTL.bed.gz"
+    params:
+        script = "scripts/eqtl_prepare_expression.py"
+    run:
+        # pandas - read in expression bed 
+        # drop group column
+        # write out table
+        # create separate table with just phenotype and group ID - look into
+        phenotype_df = pd.read_csv(input.pheno, sep='\t', index_col=3, dtype={'#chr':str, '#Chr':str})
+        # create group and ID table - phenotype group (used for splicing)
+        phenotype_group_df = phenotype_df[["group_id"]]
+        # drop group and strand from phenotype table
+        phenotype_df.drop(['strand', 'group_id'], axis=1, inplace=True)
+        phenotype_df.to_csv(output.pheno, index = False, sep = "\t")
+        phenotype_group_df.to_csv(output.group, index = False, sep = "\t")
+        
 rule runPEER:
     input:
         phenotype_matrix # either expression or splicing counts
@@ -358,52 +418,6 @@ rule summariseResults:
         "do cat $i | sort -k9nr,10nr | head -1 | awk -v i=$i \'{{print i, $0}}\'  ;"
         "done > {output};"
 
-
-        #summarizes removed chunks/genotypes
-#        "touch {params.logNomFolder}/removed_genotypes_chunks.txt;"
-#        "touch {params.logNomFolder}/removed_genotypes_loci.txt;"
-#        "grep \"EXITED:\" {params.logNomFolder}/* | rev | cut -d\"/\" -f1 | rev | cut -d\"_\" -f1 > {params.logNomFolder}/removed_genotypes_chunks.txt;"
-#        "grep -A1 \"VCF\" $(grep \"EXITED:\" {params.logNomFolder}/* | cut -d\":\" -f1) | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logNomFolder}/removed_genotypes_loci.txt;"        
-        #"ls {params.logNomFolder}/ | grep \"EXITED:\" | cut -d\"_\" -f1 > {params.logNomFolder}/removed_genotypes_chunks.txt;"
-        #"ls {params.logNomFolder}/ | grep \"EXITED:\" | cut -d\":\" -f1 | grep -A1 \"VCF\" | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logNomFolder}/removed_genotypes_loci.txt;"
-#        "paste {params.logNomFolder}/removed_genotypes_chunks.txt {params.logNomFolder}/removed_genotypes_loci.txt > {params.logNomFolder}/Removed_Genotypes.txt;"
- #       "rm {params.logNomFolder}/removed_genotypes_chunks.txt;"
-  #      "rm {params.logNomFolder}/removed_genotypes_loci.txt;"
-
-        #summarizes removed _exclude_phenotypes
-   #     "touch {params.logNomFolder}/removed_phenotypes_chunks.txt;"
-    #    "touch {params.logNomFolder}/removed_phenotypes_loci.txt;"
-     #   "touch {params.logNomFolder}/removed_phenotypes_list.txt;"
-      #  "find {params.logNomFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev | cut -d'_' -f1 > {params.logNomFolder}/removed_phenotypes_chunks.txt;"
-       # "grep -A1 \"Reading phenotype data in\" {params.logPerFolder}/\"$(find {params.logNomFolder}/*exclude_phenotypes.txt -not -empty -ls | rev |cut -d'/' -f1 | rev | cut -d'_' -f1)\"_log.txt | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logNomFolder}/removed_phenotypes_loci.txt;"
-        #"tr '\n' ',' < {params.logPerFolder}/$(find {params.logNomFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev) > {params.logNomFolder}/removed_phenotypes_list.txt;"
-        #"paste {params.logNomFolder}/removed_phenotypes_chunks.txt {params.logNomFolder}/removed_phenotypes_loci.txt {params.logNomFolder}/removed_phenotypes_list.txt > {params.logNomFolder}/Removed_Phenotypes.txt;"
-        #"rm {params.logNomFolder}/removed_phenotypes_chunks.txt;"
-        #"rm {params.logNomFolder}/removed_phenotypes_loci.txt;"
-        #"rm {params.logNomFolder}/removed_phenotypes_list.txt;"
-
-        #summarizes removed chunks/genotypes
-        #"touch {params.logPerFolder}/removed_genotypes_chunks.txt;"
-        #"touch {params.logPerFolder}/removed_genotypes_loci.txt;"
-        #"grep \"EXITED:\" {params.logPerFolder}/* | rev | cut -d\"/\" -f1 | rev | cut -d\"_\" -f1 > {params.logPerFolder}/removed_genotypes_chunks.txt;"
-       # "grep -A1 \"VCF\" $(grep \"EXITED:\" {params.logPerFolder}/* | cut -d\":\" -f1) | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logPerFolder}/removed_genotypes_loci.txt;"
-        #"ls {params.logPerFolder}/ | grep \"EXITED:\" | cut -d\"_\" -f1 > {params.logPerFolder}/removed_genotypes_chunks.txt;"
-        #"ls {params.logPerFolder}/ | grep \"EXITED:\" | cut -d\":\" -f1 | grep -A1 \"VCF\" | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logPerFolder}/removed_genotypes_loci.txt;"
-       # "paste {params.logPerFolder}/removed_genotypes_chunks.txt {params.logPerFolder}/removed_genotypes_loci.txt > {params.logPerFolder}/Removed_Genotypes.txt;"
-        #        "rm {params.logPerFolder}/removed_genotypes_chunks.txt;"
-        #"rm {params.logPerFolder}/removed_genotypes_loci.txt;"
-
-        #summarizes removed _exclude_phenotypes
-        #"touch {params.logPerFolder}/removed_phenotypes_chunks.txt;"
-        #"touch {params.logPerFolder}/removed_phenotypes_loci.txt;"
-        #"touch {params.logPerFolder}/removed_phenotypes_list.txt;"
-       # #"find {params.logPerFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev | cut -d'_' -f1 > {params.logPerFolder}/removed_phenotypes_chunks.txt;"
-        #"grep -A1 \"Reading phenotype data in\" {params.logPerFolder}/\"$(find {params.logPerFolder}/*exclude_phenotypes.txt -not -empty -ls | rev |cut -d'/' -f1 | rev | cut -d'_' -f1)\"_log.txt | awk 'NR % 3 == 2' | cut -d'[' -f2 | cut -d']' -f1 > {params.logPerFolder}/removed_phenotypes_loci.txt;"
-        #"tr '\n' ',' < {params.logPerFolder}/$(find {params.logPerFolder}/*exclude_phenotypes.txt -not -empty -ls | rev | cut -d'/' -f1 | rev) > {params.logPerFolder}/removed_phenotypes_list.txt;"
-       # "paste {params.logPerFolder}/removed_phenotypes_chunks.txt {params.logPerFolder}/removed_phenotypes_loci.txt {params.logPerFolder}/removed_phenotypes_list.txt > {params.logPerFolder}/Removed_Phenotypes.txt;"
-       # "rm {params.logPerFolder}/removed_phenotypes_chunks.txt;"
-       # "rm {params.logPerFolder}/removed_phenotypes_loci.txt;"
-
 ## TENSORQTL -----------------------------------------------------------------------
 
 # tensorQTL requires genotypes in PLINK format
@@ -427,16 +441,18 @@ rule VCFtoPLINK:
 rule tensorQTL_cis:
     input:
         VCFstem + ".fam",
-        phenotypes = phenotype_matrix,
-        #expression = prefix + ".expression.bed.gz",
-                covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+        phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
+        covariates = internal_covariates,
+        interaction = interaction_file
     output:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
     params:
         num_peer = "{PEER_N}"
     shell:
-        "python3 -m tensorqtl {VCFstem} {input.phenotypes} "
+        "tensorqtl {VCFstem} {input.phenotypes} "
         "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
+            " --interaction {input.interaction} "
+            "  --maf_threshold_interaction 0.05 "
             " --covariates {input.covariates} "
             " --mode cis "
 
@@ -445,7 +461,7 @@ rule tensorQTL_cis_nominal:
         VCFstem + ".fam",
         phenotypes = phenotype_matrix,
         #expression = prefix + ".expression.bed.gz",
-        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+        covariates = internal_covariates
     output:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_nominal_qtl.txt.gz"
     params:
@@ -455,6 +471,4 @@ rule tensorQTL_cis_nominal:
         "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
         "--covariates {input.covariates} "
         " --mode cis_nominal "
-        
 
-        "rm {params.logPerFolder}/removed_phenotypes_list.txt;"
