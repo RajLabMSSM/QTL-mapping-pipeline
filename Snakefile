@@ -1,12 +1,11 @@
 # QTL mapping pipeline
 # Jack Humphrey 
 import glob
+import pandas as pd
 import os
 
-interaction = True
-interaction_name = "disease"
-leafcutter_dir = "/sc/orga/projects/ad-omics/data/software/leafcutter/"
-GTF = "/sc/orga/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
+leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
+GTF = "/sc/arion/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 GTFexons = GTF + ".exons.txt.gz" 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
@@ -15,6 +14,12 @@ chunk_number = 22 * 40 # at least as many chunks as there are chromosomes
 chunk_range = range(1,chunk_number + 1)
 
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
+
+
+# interaction mode - set default to False
+if "interaction" not in config.keys():
+    config["interaction"] = False
+interaction = bool(config["interaction"])
 
 # common config variables - all modes require these
 mode = config["mode"]
@@ -31,14 +36,14 @@ phenotype_matrix = ""
 bamFolder = ""
 bamSuffix = ""
 BAM_SAMPLES = []
+interaction_string = ""
+group_string = ""
 
 if(mode == "mbv"):
     bamFolder = config["bamFolder"]
     bamSuffix = config["bamSuffix"]
     BAM_SAMPLES = [os.path.basename(x).strip(bamSuffix) for x in glob.glob(bamFolder + "/*" + bamSuffix)]
     dataCode = dataCode + "_mbv"
-    outFolder = "results/" + dataCode + "/"
-    prefix = outFolder + dataCode
     final_output = prefix + "_mbv_summary.txt"
 else:
     sample_key = config["sampleKey"]
@@ -46,61 +51,53 @@ else:
     covariateFile = config["covariateFile"]
     PEER_values = config["PEER_values"]
 
-# Expression QTLs - uses expression from RSEM and tximport
-if(mode == "eQTL"):
-    PEER_values = [30]
-    dataCode = dataCode + "_expression"
-    outFolder = "results/" + dataCode + "/"
-    prefix = outFolder + dataCode
-    countMatrixRData = config["countMatrixRData"]
-    phenotype_matrix = prefix + ".expression.bed.gz"
-    internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
-    final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values)
-    grouping_param = ""
 
-# Splicing QTLs - uses junctions from regtools
-if(mode == "sQTL"):
-    PEER_values = [15]
-    dataCode = dataCode + "_splicing"
-    junctionFileList = config["junctionFileList"]
-    outFolder = "results/" + dataCode + "/"
-    prefix = outFolder + dataCode
-    phenotype_matrix = prefix + ".leafcutter.bed.gz" 
-    internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt" #outFolder + ".leafcutter.PCs.txt"
-    grouping_param =" --grp-best "
-    final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values) #prefix + "_results.genes.significant.txt" 
 
-# interaction expression QTLs
+if( interaction is True ):
+    print("interaction mode selected")
+    if "interaction_name" not in config.keys():
+        sys.exit("config.yaml does not contain interaction_name value")
+
+# Interaction QTLs
 # requires an interaction_file and an interaction_name in the config.yaml
-if(mode == "ieQTL"):
-    PEER_values = config["PEER_values"]
+if(interaction is True):
+    print("hello there")
     interaction_name = config["interaction_name"]
     interaction_file = config["interaction_file"]
-    dataCode = dataCode + "_expression" + "_interaction_" + interaction_name
+    interaction_string = " --interaction {interaction_file}  --maf_threshold_interaction 0.05 "
+
+# expression QTLs
+if(mode == "eQTL"):
+    PEER_values = config["PEER_values"]
+    dataCode = dataCode + "_expression" 
+    if(interaction is True):
+        dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".expression.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
-    final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values)
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values), \
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)) ) ]
     countMatrixRData = config["countMatrixRData"]
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
- 
-# interaction splicing QTLs
-if(mode == "ieQTL"):
+
+# splicing QTLs
+if(mode == "sQTL"):
     PEER_values = config["PEER_values"]
-    interaction_name = config["interaction_name"]
-    interaction_file = config["interaction_file"]
-    dataCode = dataCode + "_splicing" + "_interaction_" + interaction_name
+    dataCode = dataCode + "_splicing"
+    if(interaction is True):
+        dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     junctionFileList = config["junctionFileList"]
     phenotype_matrix = prefix + ".leafcutter.bed.gz"
-    grouping_param =" --grp-best " # is this the same for tensorQTL? probably not
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
-    final_output = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values)
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values), \
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)) ) ]    
     internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
+    group_file = prefix + ".group.tensorQTL.bed.gz"
+    group_string = " --phenotype_groups " + group_file
 
-# if interaction requested then use TensorQTL and include script that matches interaction values to covariates and samples
 
 print(" * QTL-mapping pipeline *")
 print(" Jack Humphrey 2019-2020 ")
@@ -111,12 +108,6 @@ print(" * Mode selected is: %s" % mode)
 rule all:
     input:
         final_output
-        #prefix + ".leafcutter.PCs.txt"
-        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_qtl.txt.gz", PEER_N = PEER_values),
-        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + ".cis_nominal_qtl.txt.gz", PEER_N = PEER_values)
-        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt", PEER_N = PEER_values),
-        #expand(outFolder + "peer{PEER_N}/" + dataCode +'_peer{PEER_N}_chunk{CHUNK}.nominals.txt', PEER_N = PEER_values, CHUNK = chunk_range),
-        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz", PEER_N = PEER_values)
 
 rule collapseGTF:
     input:
@@ -237,31 +228,7 @@ rule prepareExpression:
         " --sample_frac_threshold 0.2 "
         " --normalization_method tmm "
 
-# tensorQTL expects fastQTL formatted phenotype files
-# these don't include group info
-# therefore take the phenotype file from QTLtools and strip out group info into a separate file
-# this group info table should be two columns - phenotype and group
-rule prepareExpressionTensorQTL:
-    input:
-        pheno = prefix + ".expression.bed.gz"
-    output:
-        pheno = prefix + ".phenotype.tensorQTL.bed.gz",
-        group = prefix + ".group.tensorQTL.bed.gz"
-    params:
-        script = "scripts/eqtl_prepare_expression.py"
-    run:
-        # pandas - read in expression bed 
-        # drop group column
-        # write out table
-        # create separate table with just phenotype and group ID - look into
-        phenotype_df = pd.read_csv(input.pheno, sep='\t', index_col=3, dtype={'#chr':str, '#Chr':str})
-        # create group and ID table - phenotype group (used for splicing)
-        phenotype_group_df = phenotype_df[["group_id"]]
-        # drop group and strand from phenotype table
-        phenotype_df.drop(['strand', 'group_id'], axis=1, inplace=True)
-        phenotype_df.to_csv(output.pheno, index = False, sep = "\t")
-        phenotype_group_df.to_csv(output.group, index = False, sep = "\t")
-        
+       
 rule runPEER:
     input:
         phenotype_matrix # either expression or splicing counts
@@ -300,79 +267,18 @@ rule combineCovariates:
         "mkdir -p {params.logNomFolder};"
         "mkdir -p {params.logPerFolder};"
 
-#Changes to QTLtools_nominal and QTLtools_permutation do the following
-#implements a do while loop to keep repeating the initial qtltools command to remove phenotypes without enough variants
-#If no output is created (happens when there is no genotype within the region), creates an empty file (last if statement in the shell script)
-#Additionally, it seems that a single log file will account for the logs for both nominal and permutation. They should be the same, and they should remove the same phenotypes
-rule QTLtools_nominal:
-    input:
-        phenotypes = phenotype_matrix,
-        #expression = prefix + ".expression.bed.gz",
-        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-        vcf = VCFstem + ".vcf.gz"
-    output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt"
-    params:
-        pval_threshold = 1,
-        logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
-        chunk_num = "{CHUNK}",
-        chunk_max = chunk_number
-    shell:
-        "touch {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
-        "success=false;" #condition for do while loop
-        "until [ \"$success\" = true ]; "
-        "do {{"
-        " {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
-        " --nominal {params.pval_threshold} "
-        "--out {output} --chunk {params.chunk_num} {params.chunk_max} "
-        " --normal --exclude-phenotypes {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt " # > {params.logNomFolder}/Chunk{params.chunk_num}_log.txt"
-        " && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
-        " || {{ grep 'Processing phenotype' {params.logNomFolder}/Chunk{params.chunk_num}_log.txt > {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
-        "sed -n \"$(wc -l < {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logNomFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
-        ">> {params.logNomFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
-        "if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
-
-
-rule QTLtools_permutation:
-    input:
-        phenotypes = phenotype_matrix,
-        #expression = prefix + ".expression.bed.gz",
-        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-        vcf = VCFstem + ".vcf.gz"
-    output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt"
-    params:
-        permutations = nPerm,
-        logPerFolder = outFolder + "peer{PEER_N}/logPerFolder",
-        chunk_num = "{CHUNK}",
-        chunk_max = chunk_number
-    shell:
-        "touch {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt;" #create phenotype exclusion file beforehand
-        "success=false;" #condition for do while loop
-        "until [ \"$success\" = true ]; do {{" 
-        " {QTLtools} cis --vcf {input.vcf} --bed {input.phenotypes} --cov {input.covariates} "
-        " {grouping_param} " # for sQTLs - permute by gene
-        " --permute {params.permutations} "
-        "--out {output} --chunk {params.chunk_num} {params.chunk_max} "
-        " --normal "  #--exclude-phenotypes {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt "
-        " > {params.logPerFolder}/Chunk{params.chunk_num}_log.txt"
-        " && success=true; }}" #&& means the second command will only execute if the first executes without error, || responds to the error
-        " || {{ grep 'Processing phenotype' {params.logPerFolder}/Chunk{params.chunk_num}_log.txt > {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt;" #greps the last phenotype processed. This one brought up the error
-        "sed -n \"$(wc -l < {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt)p\" {params.logPerFolder}/Chunk{params.chunk_num}_log2.txt | cut -d'[' -f 2 | cut -d']' -f 1 " #performs string parsing on the statement around the phenotype
-        ">> {params.logPerFolder}/Chunk{params.chunk_num}_exclude_phenotypes.txt; }}; done;" #adds this phenotype to a file containing all phenotypes to exclude for this chunk
-        "if [[ ! -f {output} ]]; then touch {output}; fi;" #handles errors that simply exit the code without creating an output
-
+# deprecated - may be able to reuse with tensorQTL but permutation step already performs qvalue testing
 rule summariseQTLtoolsResults:
     input:
-        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.nominals.txt', CHUNK = chunk_range, allow_missing=True),
-        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk{CHUNK}.permutations.txt', CHUNK = chunk_range, allow_missing=True)
+        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt", CHUNK = chunk_range, allow_missing=True),
+        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt", CHUNK = chunk_range, allow_missing=True)
     output:
         full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
         full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.permutation.full.txt.gz",
         sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
     params:
-        nominal_wildcard = outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk*nominals.txt',
-        permutation_wildcard  = outFolder + "peer{PEER_N}/" + dataCode + '_peer{PEER_N}_chunk*permutations.txt', 
+        nominal_wildcard = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*nominals.txt",
+        permutation_wildcard  = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*permutations.txt", 
         script = "scripts/runFDR_cis.R",
         file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
         # cat together all nominal and permutation files
@@ -381,6 +287,115 @@ rule summariseQTLtoolsResults:
         "cat {params.nominal_wildcard} | gzip -c > {output.full_nom};"
         "cat {params.permutation_wildcard} | gzip -c > {output.full_perm};"
         "Rscript {params.script} {output.full_perm} 0.05 {params.file_prefix};"
+## TENSORQTL -----------------------------------------------------------------------
+
+# tensorQTL expects fastQTL formatted phenotype files
+# these don't include group info
+# therefore take the phenotype file from QTLtools and strip out group info into a separate file
+# this group info table should be two columns - phenotype and group
+rule prepareExpressionTensorQTL:
+    input:
+        pheno = phenotype_matrix
+    output:
+        pheno = prefix + ".phenotype.tensorQTL.bed.gz",
+        group = prefix + ".group.tensorQTL.bed.gz"
+    run:
+        # pandas - read in expression bed 
+        # drop group column
+        # write out table
+        # create separate table with just phenotype and group ID - look into
+        phenotype_df = pd.read_csv(input.pheno, sep='\t', dtype={'#chr':str, '#Chr':str})
+        gene_id = phenotype_df.columns[3]
+        group_id = phenotype_df.columns[4]
+        
+        # sort by group ID
+        phenotype_df = phenotype_df.sort_values(by = group_id)
+        # use column numbers not names - leafcutter table doesn't use same column names but positions are the same
+        # create group and ID table - phenotype group (used for splicing)
+        phenotype_group_df = phenotype_df[[gene_id, group_id]]
+        
+        # drop group and strand from phenotype table
+        phenotype_df.drop(['strand', group_id], axis=1, inplace=True)
+        phenotype_df.to_csv(output.pheno, index = False, sep = "\t")
+        # no header!
+        phenotype_group_df.to_csv(output.group, header = False, index = False, sep = "\t")
+
+# extract the needed samples from the VCF 
+rule getParticipants:
+    input:
+        txt = sample_key
+    output:
+        txt = prefix + "_participants.txt"
+    run:
+        sk = pd.read_csv(input.txt, sep = "\t")
+        participants = sk[["participant_id"]]
+        participants.to_csv(output.txt, index = False, header = False, sep = "\t")
+
+# tensorQTL requires genotypes in PLINK format
+# convert using plink2
+# test VCF has multiallelic SNPs, hence the forcing with max-alleles
+# in real data we've previously excluded multiallelics
+# should go back to at some point
+rule VCFtoPLINK:
+    input:
+        vcf = VCFstem + ".vcf.gz",
+        participants = prefix + "_participants.txt"
+    output:
+        prefix + "_genotypes.fam"
+    params:
+        stem = prefix + "_genotypes"
+    shell:
+        "ml plink2; "
+        "plink2 --make-bed "
+        "--output-chr chrM "
+        "--max-alleles 2 "
+        "--keep {input.participants} "
+        "--maf 0.01 "
+        "--max-maf 0.9975 "
+        "--vcf {input.vcf} "
+        "--out {params.stem} "
+
+rule tensorQTL_cis:
+    input:
+        genotypes = prefix + "_genotypes.fam",
+        phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
+        covariates = internal_covariates,
+        groups = prefix + ".group.tensorQTL.bed.gz"
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
+    params:
+        stem = prefix + "_genotypes",
+        num_peer = "{PEER_N}",
+        group_string = group_string
+    shell:
+        " /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline/bin/python3 -m tensorqtl {params.stem} {input.phenotypes} "
+        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " 
+         " --covariates {input.covariates} "
+         " --mode cis "
+         " {params.group_string} "
+         " {interaction_string} "
+
+rule tensorQTL_cis_nominal:
+    input:
+        #perm_res = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz",
+        genotypes = prefix + "_genotypes.fam",
+        groups = prefix + ".group.tensorQTL.bed.gz",
+        phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
+        covariates = internal_covariates
+    output:
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
+    params:
+        stem = prefix + "_genotypes",
+        num_peer = "{PEER_N}",
+        group_string = group_string
+    shell:
+        " /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline/bin/python3 -m tensorqtl {params.stem} {input.phenotypes} "
+        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " 
+        " --covariates {input.covariates} "
+        " --mode cis_nominal "
+        " {params.group_string} "
+        " {interaction_string} "
+
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
 # THIS SHOULD BE RUN BEFORE QTL MAPPING TO CHECK FOR SAMPLE SWAPS
@@ -418,57 +433,4 @@ rule summariseResults:
         "do cat $i | sort -k9nr,10nr | head -1 | awk -v i=$i \'{{print i, $0}}\'  ;"
         "done > {output};"
 
-## TENSORQTL -----------------------------------------------------------------------
-
-# tensorQTL requires genotypes in PLINK format
-# convert using plink2
-# test VCF has multiallelic SNPs, hence the forcing with max-alleles
-# in real data we've previously excluded multiallelics
-# should go back to at some point
-rule VCFtoPLINK:
-    input:
-        VCFstem + ".vcf.gz"
-    output:
-        VCFstem + ".fam"
-    shell:
-        "ml plink2; "
-        "plink2 --make-bed "
-            "--output-chr chrM "
-        "--max-alleles 2 "
-            "--vcf {input} "
-            "--out {VCFstem} "
-
-rule tensorQTL_cis:
-    input:
-        VCFstem + ".fam",
-        phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
-        covariates = internal_covariates,
-        interaction = interaction_file
-    output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
-    params:
-        num_peer = "{PEER_N}"
-    shell:
-        "tensorqtl {VCFstem} {input.phenotypes} "
-        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
-            " --interaction {input.interaction} "
-            "  --maf_threshold_interaction 0.05 "
-            " --covariates {input.covariates} "
-            " --mode cis "
-
-rule tensorQTL_cis_nominal:
-    input:
-        VCFstem + ".fam",
-        phenotypes = phenotype_matrix,
-        #expression = prefix + ".expression.bed.gz",
-        covariates = internal_covariates
-    output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_nominal_qtl.txt.gz"
-    params:
-        num_peer = "{PEER_N}"
-    shell:
-        "python3 -m tensorqtl {VCFstem} {input.phenotypes} "
-        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " #" ${prefix} "
-        "--covariates {input.covariates} "
-        " --mode cis_nominal "
 
