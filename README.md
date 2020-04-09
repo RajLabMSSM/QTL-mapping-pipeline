@@ -19,6 +19,20 @@ YAML file is now in the repo
 conda env create -f QTL-pipeline.yml
 ```
 
+## TensorQTL dev version
+
+You must install the development version of TensorQTL as the pip release has several bugs that break nominal QTL mapping.
+Therefore you must manually install this from where we keep it in the communal software folder once you've got your conda environment:
+
+(This assumes you have access to ad-omics), otherwise clone the repo from https://github.com/broadinstitute/tensorqtl
+
+```
+conda activate QTL-pipeline
+cd /sc/hydra/projects/ad-omics/data/software/tensorqtl
+pip install -r install/requirements.txt .
+
+```
+
 ## running on test data
 
 ```
@@ -123,16 +137,14 @@ Example:
 ```
 
 
+The resources each step is allocated is set in `cluster.yaml`. 
+ 
 
-#### On chunking
-  
-The most computationally intensive steps are running QTLtools for the nominal and permutation pass. They can be be paralellised using chunking. Chunking is currently hardcoded in the Snakefile at 40 chunks per chromosome. This can be altered by changing the `chunk_number` variable inside the Snakefile. There are unfortunately bugs due to some chunks having no variants. Sanan has written a workaround but it doesn't always work. 
-  
- The resources each step is allocated is set in `cluster.yaml`. 
- 
- 
+# To be documented:
+
+* Interaction QTLs
+
  # Features coming soon
  
- * interaction QTLs using tensorQTL
  * trans-QTLs using tensorQTL
   
