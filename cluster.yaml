@@ -30,7 +30,7 @@ prepareSplicing:
 tensorQTL_cis:
    queue: express
    #queue: gpu
-   cores: 4
+   cores: 6
    mem: 3000
    time: 360
    #gpuString: |
@@ -38,7 +38,7 @@ tensorQTL_cis:
 tensorQTL_cis_nominal:
     queue: express
     #queue: gpu
-    cores: 4
+    cores: 6
     mem: 3000
     time: 240
 prepareExpression:

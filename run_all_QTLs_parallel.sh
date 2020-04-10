@@ -18,6 +18,7 @@ while getopts 'c:s:m:nh' flag; do
   case "${flag}" in
     c) configList="${OPTARG}" ;;
     s) snakefile="${OPTARG}" ;;
+    m) mode="${OPTARG}" ;;
     n) dryrun="-n" ;;
     h) print_usage
        exit 1 ;;
@@ -47,6 +48,10 @@ fi
 
 for config in $(cat $configList);do
  echo $config
-    bsub -P acc_als-omics -W 6:00 -n 1 -q express -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
+    if [ $mode == "eQTL" ]; then
+        bsub -P acc_als-omics -W 6:00 -n 1 -q express -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
+    fi
+    if [ $mode == "sQTL" ]; then
     bsub -P acc_als-omics -W 6:00 -n 1 -q express -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
+    fi
 done

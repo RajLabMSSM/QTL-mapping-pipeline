@@ -30,6 +30,8 @@ Therefore you must manually install this from where we keep it in the communal s
 conda activate QTL-pipeline
 cd /sc/hydra/projects/ad-omics/data/software/tensorqtl
 pip install -r install/requirements.txt .
+pip install --upgrade pandas
+pip install --upgrade snakemake
 
 ```
 

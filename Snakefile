@@ -83,7 +83,9 @@ if(mode == "eQTL"):
 
 # splicing QTLs
 if(mode == "sQTL"):
-    PEER_values = config["PEER_values"]
+    # PEER values for sQTLs hard-coded at 20
+    PEER_values = [20]
+    #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
     if(interaction is True):
         dataCode = dataCode  + "_interaction_" + interaction_name
@@ -351,6 +353,7 @@ rule VCFtoPLINK:
         "--max-alleles 2 "
         "--keep {input.participants} "
         "--maf 0.01 "
+        "--allow-extra-chr "
         "--max-maf 0.9975 "
         "--vcf {input.vcf} "
         "--out {params.stem} "
