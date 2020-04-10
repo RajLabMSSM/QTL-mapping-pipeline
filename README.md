@@ -138,8 +138,17 @@ Example:
 
 
 The resources each step is allocated is set in `cluster.yaml`. 
- 
 
+# UNLIMITED POWER - run multiple QTL analyses simultaneously
+
+Building upon `snakejob`, the script `run_all_QTLs_parallel.sh` takes as input list of paths to config files. For each file it then submits a separate snakejob job to the cluster for both eQTLs and sQTLs. So all your jobs can be run at the same time!
+
+usage:
+
+```
+sh run_all_QTLs_parallel.sh -c config_file_list.txt -s Snakefile
+``` 
+ 
 # To be documented:
 
 * Interaction QTLs

@@ -73,8 +73,8 @@ bsub=("bsub -K -J $jname:{rule}:{wildcards}"
 "-q {cluster.queue} "
 "-n {cluster.cores} -R \"span[hosts=1] select[mem>{cluster.mem}]"
 "rusage[mem={cluster.mem}]\" -W {cluster.time} -L /bin/bash"
-"-oo cluster/{rule}:{dataCode}:{wildcards}.stdout"
-"-eo cluster/{rule}:{dataCode}:{wildcards}.stderr < ")
+"-oo cluster/{rule}_{dataCode}_{wildcards}.stdout"
+"-eo cluster/{rule}_{dataCode}_{wildcards}.stderr < ")
 
 snakemake -u cluster.yaml --cluster-sync "${bsub[*]}" \
   --local-cores 4 --max-jobs-per-second 5 \
