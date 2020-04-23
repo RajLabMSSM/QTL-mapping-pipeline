@@ -28,11 +28,12 @@ prepareSplicing:
     mem: 3750
     time: 120
 tensorQTL_cis:
-   queue: express
-   #queue: gpu
+   #queue: premium
+   #time: 1440
+   queue: gpu
    cores: 6
    mem: 3000
-   time: 360
+   time: 300
    #gpuString: |
    #    #  -R "gpu rusage[ngpus_excl_p=1]" -R v100
 tensorQTL_cis_nominal:
@@ -40,7 +41,7 @@ tensorQTL_cis_nominal:
     #queue: gpu
     cores: 6
     mem: 3000
-    time: 240
+    time: 300
 prepareExpression:
   cores: 4
   mem: 3000

@@ -49,9 +49,9 @@ fi
 for config in $(cat $configList);do
  echo $config
     if [ $mode == "eQTL" ]; then
-        bsub -P acc_als-omics -W 6:00 -n 1 -q express -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
+        bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
     fi
     if [ $mode == "sQTL" ]; then
-    bsub -P acc_als-omics -W 6:00 -n 1 -q express -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
+    bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
     fi
 done

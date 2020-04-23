@@ -10,8 +10,6 @@ GTFexons = GTF + ".exons.txt.gz"
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
 nPerm = 10000 # number of permutations of the permutation pass
-chunk_number = 22 * 40 # at least as many chunks as there are chromosomes
-chunk_range = range(1,chunk_number + 1)
 
 shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 
@@ -68,7 +66,8 @@ if(interaction is True):
 
 # expression QTLs
 if(mode == "eQTL"):
-    PEER_values = config["PEER_values"]
+    PEER_values = [0]
+    #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression" 
     if(interaction is True):
         dataCode = dataCode  + "_interaction_" + interaction_name
@@ -79,7 +78,6 @@ if(mode == "eQTL"):
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values), \
                      expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)) ) ]
     countMatrixRData = config["countMatrixRData"]
-    internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
 
 # splicing QTLs
 if(mode == "sQTL"):
@@ -96,7 +94,6 @@ if(mode == "sQTL"):
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values), \
                      expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)) ) ]    
-    internal_covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
     group_file = prefix + ".group.tensorQTL.bed.gz"
     group_string = " --phenotype_groups " + group_file
 
@@ -241,58 +238,62 @@ rule runPEER:
     output:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
     run:
-        if params.num_peer > 0:
+        if int(wildcards.PEER_N) > 0:
             shell("ml R/3.6.0; ")
             shell("Rscript {params.script} {input} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} {params.num_peer}")
         else:
             shell("touch {output}")
 
-if covariateFile != "":
-    covariate_string = " --add_covariates " + covariateFile 
-else:
-    covariate_string = ""
-
 rule combineCovariates:
     input:
+        pheno = prefix + ".phenotype.tensorQTL.bed.gz",
         geno =  genotypePCs,
-        peer =  outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
-        #covariates = covariateFile
+        peer =  outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt",
+        covariates = covariateFile
     output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+        cov_df = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
     params:
-        covariates = covariate_string,
         num_peer = "{PEER_N}",
         script = "scripts/combine_covariates.py",
         logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
         logPerFolder = outFolder + "peer{PEER_N}/logPerFolder"
     run:
-        if params.num_peer > 0:
-            peerFile = input.peer
+        if int(wildcards.PEER_N) > 0:
+            peerFile = "--add_covariates " + input.peer
         else:
             peerFile = ""
-        shell("python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} \
-             --genotype_pcs {input.geno} {params.covariates} ")
+        shell("python {params.script} {peerFile} \
+             --genotype_pcs {input.geno} {input.covariates} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} ")
+        # make sure combined covariate file has column names in same order as phenotype file
+        phenotype_df = pd.read_csv(input.pheno, sep='\t', dtype={'#chr':str, '#Chr':str})
+        covariate_df = pd.read_csv(output.cov_df, sep = "\t" )
+        covariate_df = covariate_df[ ["ID"] + list(phenotype_df.columns[4:]) ]
+        # write out
+        covariate_df.to_csv(output.cov_df, header = True, index = False, sep = "\t")
+
 
 # deprecated - may be able to reuse with tensorQTL but permutation step already performs qvalue testing
-rule summariseQTLtoolsResults:
-    input:
-        nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt", CHUNK = chunk_range, allow_missing=True),
-        permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt", CHUNK = chunk_range, allow_missing=True)
-    output:
-        full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
-        full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.permutation.full.txt.gz",
-        sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
-    params:
-        nominal_wildcard = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*nominals.txt",
-        permutation_wildcard  = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*permutations.txt", 
-        script = "scripts/runFDR_cis.R",
-        file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
-        # cat together all nominal and permutation files
-    shell:
-        "ml R/3.6.0;"
-        "cat {params.nominal_wildcard} | gzip -c > {output.full_nom};"
-        "cat {params.permutation_wildcard} | gzip -c > {output.full_perm};"
-        "Rscript {params.script} {output.full_perm} 0.05 {params.file_prefix};"
+#rule summariseQTLtoolsResults:
+#    input:
+        #nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt", CHUNK = chunk_range, allow_missing=True),
+        #permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt", CHUNK = chunk_range, allow_missing=True)
+#    output:
+#        full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
+#        full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.permutation.full.txt.gz",
+#        sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
+#    params:
+#        nominal_wildcard = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*nominals.txt",
+#        permutation_wildcard  = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*permutations.txt", 
+#        script = "scripts/runFDR_cis.R",
+#        file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
+#        # cat together all nominal and permutation files
+#    shell:
+#        "ml R/3.6.0;"
+#        "cat {params.nominal_wildcard} | gzip -c > {output.full_nom};"
+#        "cat {params.permutation_wildcard} | gzip -c > {output.full_perm};"
+#        "Rscript {params.script} {output.full_perm} 0.05 {params.file_prefix};"
+
+
 ## TENSORQTL -----------------------------------------------------------------------
 
 # tensorQTL expects fastQTL formatted phenotype files
@@ -366,7 +367,7 @@ rule tensorQTL_cis:
     input:
         genotypes = prefix + "_genotypes.fam",
         phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
-        covariates = internal_covariates,
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
         groups = prefix + ".group.tensorQTL.bed.gz"
     output:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
@@ -388,7 +389,7 @@ rule tensorQTL_cis_nominal:
         genotypes = prefix + "_genotypes.fam",
         groups = prefix + ".group.tensorQTL.bed.gz",
         phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
-        covariates = internal_covariates
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
     output:
         expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
     params:
