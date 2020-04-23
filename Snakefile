@@ -240,9 +240,12 @@ rule runPEER:
         num_peer = "{PEER_N}"
     output:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
-    shell:
-        "ml R/3.6.0; "
-        "Rscript {params.script} {input} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} {params.num_peer}"
+    run:
+        if params.num_peer > 0:
+            shell("ml R/3.6.0; ")
+            shell("Rscript {params.script} {input} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} {params.num_peer}")
+        else:
+            shell("touch {output}")
 
 if covariateFile != "":
     covariate_string = " --add_covariates " + covariateFile 
@@ -262,12 +265,13 @@ rule combineCovariates:
         script = "scripts/combine_covariates.py",
         logNomFolder = outFolder + "peer{PEER_N}/logNomFolder",
         logPerFolder = outFolder + "peer{PEER_N}/logPerFolder"
-    shell:
-        "python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} "
-            " --genotype_pcs {input.geno} "
-            "{params.covariates} ;"
-        "mkdir -p {params.logNomFolder};"
-        "mkdir -p {params.logPerFolder};"
+    run:
+        if params.num_peer > 0:
+            peerFile = input.peer
+        else:
+            peerFile = ""
+        shell("python {params.script} {input.peer} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} \
+             --genotype_pcs {input.geno} {params.covariates} ")
 
 # deprecated - may be able to reuse with tensorQTL but permutation step already performs qvalue testing
 rule summariseQTLtoolsResults:
