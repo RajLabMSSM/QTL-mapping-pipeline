@@ -66,7 +66,8 @@ if(interaction is True):
 
 # expression QTLs
 if(mode == "eQTL"):
-    PEER_values = [0]
+    PEER_values = [0,10,15,20,25,30,35,40]
+    group_by_values = ["gene"]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression" 
     if(interaction is True):
@@ -75,14 +76,15 @@ if(mode == "eQTL"):
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".expression.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
-    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)) ) ]
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)), group_by = "gene" ) ]
     countMatrixRData = config["countMatrixRData"]
 
 # splicing QTLs
 if(mode == "sQTL"):
+    group_by_values = ["gene", "cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
-    PEER_values = [20]
+    PEER_values = [0,5,10,15,20]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
     if(interaction is True):
@@ -92,11 +94,10 @@ if(mode == "sQTL"):
     junctionFileList = config["junctionFileList"]
     phenotype_matrix = prefix + ".leafcutter.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
-    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz", PEER_N = PEER_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)) ) ]    
-    group_file = prefix + ".group.tensorQTL.bed.gz"
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)), group_by = "gene" ) ]    
+    group_file = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     group_string = " --phenotype_groups " + group_file
-
 
 print(" * QTL-mapping pipeline *")
 print(" Jack Humphrey 2019-2020 ")
@@ -300,12 +301,12 @@ rule combineCovariates:
 # these don't include group info
 # therefore take the phenotype file from QTLtools and strip out group info into a separate file
 # this group info table should be two columns - phenotype and group
-rule prepareExpressionTensorQTL:
+rule preparePhenotypeForTensorQTL:
     input:
         pheno = phenotype_matrix
     output:
-        pheno = prefix + ".phenotype.tensorQTL.bed.gz",
-        group = prefix + ".group.tensorQTL.bed.gz"
+        pheno = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
+        group = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     run:
         # pandas - read in expression bed 
         # drop group column
@@ -313,14 +314,22 @@ rule prepareExpressionTensorQTL:
         # create separate table with just phenotype and group ID - look into
         phenotype_df = pd.read_csv(input.pheno, sep='\t', dtype={'#chr':str, '#Chr':str})
         gene_id = phenotype_df.columns[3]
+        # this should be the "geneid" for eQTls
+        # for splicing QTLs either gene or cluster
         group_id = phenotype_df.columns[4]
-        
         # sort by group ID
+        if( wildcards.group_by == "cluster" ):
+            # split phenotype_id by ":"
+            split_df = phenotype_df[gene_id].str.split(":", n = 4, expand = True)
+            # create new group ID - gene:clusterID
+            phenotype_df[group_id] = split_df[4] + ":" + split_df[3]
+        
         phenotype_df = phenotype_df.sort_values(by = group_id)
         # use column numbers not names - leafcutter table doesn't use same column names but positions are the same
+        
         # create group and ID table - phenotype group (used for splicing)
         phenotype_group_df = phenotype_df[[gene_id, group_id]]
-        
+
         # drop group and strand from phenotype table
         phenotype_df.drop(['strand', group_id], axis=1, inplace=True)
         phenotype_df.to_csv(output.pheno, index = False, sep = "\t")
@@ -366,18 +375,19 @@ rule VCFtoPLINK:
 rule tensorQTL_cis:
     input:
         genotypes = prefix + "_genotypes.fam",
-        phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
+        phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
         covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
-        groups = prefix + ".group.tensorQTL.bed.gz"
+        groups = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz"
+        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz"
     params:
         stem = prefix + "_genotypes",
         num_peer = "{PEER_N}",
+        group = "{group_by}",
         group_string = group_string
     shell:
         " /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline/bin/python3 -m tensorqtl {params.stem} {input.phenotypes} "
-        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " 
+        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} " 
          " --covariates {input.covariates} "
          " --mode cis "
          " {params.group_string} "
@@ -387,21 +397,19 @@ rule tensorQTL_cis_nominal:
     input:
         #perm_res = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz",
         genotypes = prefix + "_genotypes.fam",
-        groups = prefix + ".group.tensorQTL.bed.gz",
-        phenotypes = prefix + ".phenotype.tensorQTL.bed.gz",
+        phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
         covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
     output:
-        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
     params:
+        group = "{group_by}",
         stem = prefix + "_genotypes",
         num_peer = "{PEER_N}",
-        group_string = group_string
     shell:
         " /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline/bin/python3 -m tensorqtl {params.stem} {input.phenotypes} "
-        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} " 
+        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} " 
         " --covariates {input.covariates} "
         " --mode cis_nominal "
-        " {params.group_string} "
         " {interaction_string} "
 
 
