@@ -22,7 +22,8 @@ interaction = bool(config["interaction"])
 # common config variables - all modes require these
 mode = config["mode"]
 dataCode = config["dataCode"]
-VCF = config["VCF"]
+VCF = "/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz"
+#VCF = config["VCF"]
 VCFstem = VCF.split(".vcf.gz")[0]
 sample_key = ""
 genotypePCs = ""
@@ -66,7 +67,7 @@ if(interaction is True):
 
 # expression QTLs
 if(mode == "eQTL"):
-    PEER_values = [0,10,15,20,25,30,35,40]
+    PEER_values = [15,30]
     group_by_values = ["gene"]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression" 
@@ -77,14 +78,14 @@ if(mode == "eQTL"):
     phenotype_matrix = prefix + ".expression.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)), group_by = "gene" ) ]
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv", PEER_N = PEER_values, group_by = "gene" ) ]
     countMatrixRData = config["countMatrixRData"]
 
 # splicing QTLs
 if(mode == "sQTL"):
-    group_by_values = ["gene", "cluster"] # should be either 'gene' or 'cluster'
+    group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
-    PEER_values = [0,5,10,15,20]
+    PEER_values = [10,20]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
     if(interaction is True):
@@ -95,7 +96,7 @@ if(mode == "sQTL"):
     phenotype_matrix = prefix + ".leafcutter.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", PEER_N = PEER_values, CHROM = list(range(1,23)), group_by = "gene" ) ]    
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv", PEER_N = PEER_values, group_by = "gene" ) ]    
     group_file = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     group_string = " --phenotype_groups " + group_file
 
@@ -412,6 +413,17 @@ rule tensorQTL_cis_nominal:
         " --mode cis_nominal "
         " {interaction_string} "
 
+
+rule mergeNominalResult:
+    input:
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv" 
+    params:
+        prefix = "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}"
+    shell:
+        " ml R/3.6.0; ml arrow;"
+        " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "    
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
 # THIS SHOULD BE RUN BEFORE QTL MAPPING TO CHECK FOR SAMPLE SWAPS
