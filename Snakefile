@@ -248,7 +248,7 @@ rule runPEER:
 
 rule combineCovariates:
     input:
-        pheno = prefix + ".phenotype.tensorQTL.bed.gz",
+        pheno = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
         geno =  genotypePCs,
         peer =  outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt",
         covariates = covariateFile
