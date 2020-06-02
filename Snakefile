@@ -78,7 +78,7 @@ if(mode == "eQTL"):
     phenotype_matrix = prefix + ".expression.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv", PEER_N = PEER_values, group_by = "gene" ) ]
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]
     countMatrixRData = config["countMatrixRData"]
 
 # splicing QTLs
@@ -96,7 +96,7 @@ if(mode == "sQTL"):
     phenotype_matrix = prefix + ".leafcutter.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv", PEER_N = PEER_values, group_by = "gene" ) ]    
+                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]    
     group_file = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     group_string = " --phenotype_groups " + group_file
 
@@ -418,9 +418,12 @@ rule mergeNominalResult:
     input:
         expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
     output:
-        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv" 
+        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz",
+        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz.tbi", 
     params:
-        prefix = "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}"
+        prefix = "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}",
+        script = "scripts/merge_nominal_results.R"
+    
     shell:
         " ml R/3.6.0; ml arrow;"
         " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "    

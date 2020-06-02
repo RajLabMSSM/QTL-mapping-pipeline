@@ -15,6 +15,10 @@ QTLtools_permutation:
     cores: 1
     mem: 3750
     time: '100'
+mergeNominalResult:
+    cores: 8
+    mem: 3000
+    time: '120'
 runPEER:
     cores: 1
     mem: 3750
