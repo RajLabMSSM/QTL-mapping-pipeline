@@ -253,7 +253,7 @@ rule combineCovariates:
         peer =  outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt",
         covariates = covariateFile
     output:
-        cov_df = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+        cov_df = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
     params:
         num_peer = "{PEER_N}",
         script = "scripts/combine_covariates.py",
@@ -377,7 +377,7 @@ rule tensorQTL_cis:
     input:
         genotypes = prefix + "_genotypes.fam",
         phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
-        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt",
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt",
         groups = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     output:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz"
@@ -399,7 +399,7 @@ rule tensorQTL_cis_nominal:
         #perm_res = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz",
         genotypes = prefix + "_genotypes.fam",
         phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
-        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.combined_covariates.txt"
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
     output:
         expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
     params:
