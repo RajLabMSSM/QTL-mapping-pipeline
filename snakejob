@@ -24,7 +24,6 @@ config='config.yaml'
 snakefile='Snakefile'
 dryrun=""
 mode="eQTL"
-interaction="False"
 
 print_usage() {
   printf "Usage: ./snakejob -c config.yaml -s Snakefile\nOptions:\n\t-c config file\n\t-s Snakefile\n\t-n dry run mode\n\t-m mode [eQTL/sQTL]\n\t-i interaction mode (requires interaction file in config.yaml)\n"
@@ -35,7 +34,6 @@ while getopts 'c:s:m:inh' flag; do
     c) config="${OPTARG}" ;;
     s) snakefile="${OPTARG}" ;;
     m) mode="${OPTARG}" ;;
-    i) interaction="True" ;;
     n) dryrun="-n" ;;
     h) print_usage
        exit 1 ;;
@@ -51,10 +49,6 @@ if [ ! -z "$dryrun" ];then
 fi
 
 echo mode selected: $mode
-
-if [ "$interaction" == "True" ];then
-    echo "interaction model selected"
-fi
 
 if [ ! -e $config ]; then
 	echo "error: config file does not exist" 
@@ -81,6 +75,6 @@ snakemake -u cluster.yaml --cluster-sync "${bsub[*]}" \
   --jobs 1000 \
   --restart-times 0 \
   -s $snakefile --configfile $config \
-  --config mode=$mode interaction=$interaction \
+  --config mode=$mode \
   --latency-wait 30 --rerun-incomplete \
   $dryrun \

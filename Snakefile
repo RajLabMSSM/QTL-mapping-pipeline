@@ -11,19 +11,21 @@ QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
 nPerm = 10000 # number of permutations of the permutation pass
 
-shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
-
+#shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
+R_VERSION = "R/3.6.0"
+shell.prefix('export PS1=""; ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; ml qtltools/1.2; ml {R_VERSION}; conda activate QTL-pipeline;')
 
 # interaction mode - set default to False
 if "interaction" not in config.keys():
     config["interaction"] = False
 interaction = bool(config["interaction"])
 
+print(interaction)
+
 # common config variables - all modes require these
 mode = config["mode"]
 dataCode = config["dataCode"]
-VCF = "/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz"
-#VCF = config["VCF"]
+VCF = config["VCF"]
 VCFstem = VCF.split(".vcf.gz")[0]
 sample_key = ""
 genotypePCs = ""
@@ -53,26 +55,25 @@ else:
 
 
 if( interaction is True ):
-    print("interaction mode selected")
+    print(" * interaction mode selected")
     if "interaction_name" not in config.keys():
         sys.exit("config.yaml does not contain interaction_name value")
 
 # Interaction QTLs
 # requires an interaction_file and an interaction_name in the config.yaml
 if(interaction is True):
-    print("hello there")
     interaction_name = config["interaction_name"]
     interaction_file = config["interaction_file"]
     interaction_string = " --interaction {interaction_file}  --maf_threshold_interaction 0.05 "
 
 # expression QTLs
 if(mode == "eQTL"):
-    PEER_values = [15,30]
+    #PEER_values = [15,30]
     group_by_values = ["gene"]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression" 
-    if(interaction is True):
-        dataCode = dataCode  + "_interaction_" + interaction_name
+    #if(interaction is True):
+    #    dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".expression.bed.gz"
@@ -85,11 +86,11 @@ if(mode == "eQTL"):
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
-    PEER_values = [10,20]
+    #PEER_values = [10,20]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
-    if(interaction is True):
-        dataCode = dataCode  + "_interaction_" + interaction_name
+    #if(interaction is True):
+    #    dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     junctionFileList = config["junctionFileList"]
@@ -265,7 +266,7 @@ rule combineCovariates:
         else:
             peerFile = ""
         shell("python {params.script} {peerFile} \
-             --genotype_pcs {input.geno} {input.covariates} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} ")
+             --genotype_pcs {input.geno} {input.covariates} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}.{wildcards.group_by} ")
         # make sure combined covariate file has column names in same order as phenotype file
         phenotype_df = pd.read_csv(input.pheno, sep='\t', dtype={'#chr':str, '#Chr':str})
         covariate_df = pd.read_csv(output.cov_df, sep = "\t" )
@@ -386,13 +387,21 @@ rule tensorQTL_cis:
         num_peer = "{PEER_N}",
         group = "{group_by}",
         group_string = group_string
-    shell:
-        " /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline/bin/python3 -m tensorqtl {params.stem} {input.phenotypes} "
-        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} " 
-         " --covariates {input.covariates} "
-         " --mode cis "
-         " {params.group_string} "
-         " {interaction_string} "
+    run:
+        if interaction is False:
+            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --covariates {input.covariates} \
+             --mode cis ")
+        if interaction is True:
+            # the same 
+            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --covariates {input.covariates} \
+             --mode cis \
+             --interaction {interaction_file}  --maf_threshold_interaction 0.05 ; \
+             Rscript {params.script} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl_top_assoc.txt.gz  {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl.txt.gz"
+        )
 
 rule tensorQTL_cis_nominal:
     input:
@@ -406,14 +415,20 @@ rule tensorQTL_cis_nominal:
         group = "{group_by}",
         stem = prefix + "_genotypes",
         num_peer = "{PEER_N}",
-    shell:
-        " /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline/bin/python3 -m tensorqtl {params.stem} {input.phenotypes} "
-        "{outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} " 
-        " --covariates {input.covariates} "
-        " --mode cis_nominal "
-        " {interaction_string} "
-
-
+    run:
+        if interaction is False:
+            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --covariates {input.covariates} \
+             --mode cis_nominal ")
+        if interaction is True:
+            # the same 
+            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --covariates {input.covariates} \
+             --mode cis_nominal \
+             --interaction {interaction_file}  --maf_threshold_interaction 0.05")
+             
 rule mergeNominalResult:
     input:
         expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
