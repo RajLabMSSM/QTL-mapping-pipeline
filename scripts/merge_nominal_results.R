@@ -21,10 +21,11 @@ prefix <- opt$prefix
 out_folder <- opt$out_folder
 
 
-#VCF <- "/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz"
+vcf <- "/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz"
 
-#out_folder <- "/sc/arion/projects/als-omics/QTL/NYGC_Freeze02_European_Feb2020/QTL-mapping-pipeline/results/Hippocampus_expression/peer15/"
-#prefix <- "Hippocampus_expression_peer15_gene"
+out_folder <- "/sc/arion/projects/als-omics/QTL/NYGC_Freeze02_European_Feb2020/QTL-mapping-pipeline/results/Hippocampus_expression/peer15/"
+
+prefix <- "Hippocampus_expression_peer15_gene"
 
 
 outFile <- paste0( out_folder, prefix, ".cis_qtl_nominal_tabixed.tsv" )
@@ -55,9 +56,11 @@ for( file in all_parquet){
 stopifnot( all(file.exists(all_parquet) ))
 
 # read in each file with read_parquet
-# join into one huge table
+# join on SNP info 
+# sort by position
+# write out each section
 all_res <- 
-    map_df( all_parquet, ~{
+    walk( all_parquet, ~{
         message( " * reading in ", .x )
         df <- read_parquet(.x)
         df <- dplyr::left_join(df, snp_df, by = "variant_id")
@@ -65,18 +68,39 @@ all_res <-
         df <- df[order(df$pos), ]
         # any weirdness - remove
         df <- df[!is.na(df$pos) ,]
-    return(df)
+        chr <- stringr::str_split_fixed(.x, ".cis_qtl_pairs.", n =2)[,2]
+        chr <- gsub(".parquet", "", chr)
+        tempFile <- paste0(outFile, "_", chr)
+        message( "* writing to: ", tempFile )
+        # only write out header for chr1
+        if( chr == "chr1" ){
+            write_tsv(df, path = tempFile, col_names = TRUE ) 
+        }else{
+            write_tsv(df, path = tempFile, col_names = FALSE)
+        }
+        
 })
 
-message(" * writing to ", outFile)
-write_tsv(all_res, path = outFile)
+# use cat to concatenate together 
+message(" * concatenating to ", outFile)
+
+all_temp <- paste0(outFile, "_chr", 1:22, collapse = " ")
+cmd <- paste( "cat", all_temp, " > ", outFile )
+message( cmd )  
+system(cmd)
+# remove temp files
+cmd <- paste( "rm ", all_temp)
+system(cmd)
+#write_tsv(all_res, path = outFile)
 
 # bgzip
+message( "* bgzipping " )
 bgzip_cmd <- paste0(" ml bcftools; bgzip -f ", outFile)
 message( " * ", bgzip_cmd)
 system(bgzip_cmd)
 
 # tabix
+message(" * tabixing " )
 tabix_cmd <- paste0(" ml bcftools; tabix -S 1 -s 10 -b 11 -e 11 ", outFile, ".gz" )
 message(" * ", tabix_cmd)
 system(tabix_cmd)
