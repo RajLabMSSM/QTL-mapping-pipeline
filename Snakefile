@@ -21,6 +21,8 @@ if "interaction" not in config.keys():
 interaction = bool(config["interaction"])
 
 print(interaction)
+# put into config
+conditional_qtls = False
 
 # common config variables - all modes require these
 mode = config["mode"]
@@ -80,13 +82,15 @@ if(mode == "eQTL"):
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
                      expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]
+    if( conditional_qtls == True ):
+        final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
     countMatrixRData = config["countMatrixRData"]
 
 # splicing QTLs
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
-    #PEER_values = [10,20]
+    PEER_values = [20]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
     #if(interaction is True):
@@ -100,7 +104,10 @@ if(mode == "sQTL"):
                      expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]    
     group_file = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     group_string = " --phenotype_groups " + group_file
+    if( conditional_qtls == True ):
+        final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
 
+    
 print(" * QTL-mapping pipeline *")
 print(" Jack Humphrey 2019-2020 ")
 print(" * Data code is : %s " % dataCode)
@@ -442,6 +449,27 @@ rule mergeNominalResult:
     shell:
         " ml R/3.6.0; ml arrow;"
         " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "    
+
+rule tensorQTL_cis_independent:
+    input:
+        cis_result =  outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz",
+        genotypes = prefix + "_genotypes.fam",
+        phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt",
+        groups = prefix + ".group.tensorQTL.{group_by}.bed.gz"
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz"
+    params:
+        stem = prefix + "_genotypes",
+        num_peer = "{PEER_N}",
+        group = "{group_by}",
+        group_string = group_string
+    run:
+        shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --covariates {input.covariates} \
+            --cis_output {input.cis_result} \
+            --mode cis_independent")
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
 # THIS SHOULD BE RUN BEFORE QTL MAPPING TO CHECK FOR SAMPLE SWAPS

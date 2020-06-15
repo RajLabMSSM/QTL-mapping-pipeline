@@ -16,7 +16,7 @@ QTLtools_permutation:
     mem: 3750
     time: '100'
 mergeNominalResult:
-    cores: 8
+    cores: 12
     mem: 3000
     time: '120'
 runPEER:
@@ -31,9 +31,12 @@ prepareSplicing:
     cores: 4
     mem: 3750
     time: 120
+tensorQTL_cis_independent:
+   queue: gpu
+   cores: 6
+   mem: 3000
+   time: 300
 tensorQTL_cis:
-   #queue: premium
-   #time: 1440
    queue: gpu
    cores: 6
    mem: 3000
@@ -42,7 +45,6 @@ tensorQTL_cis:
    #    #  -R "gpu rusage[ngpus_excl_p=1]" -R v100
 tensorQTL_cis_nominal:
     queue: express
-    #queue: gpu
     cores: 6
     mem: 3000
     time: 300
