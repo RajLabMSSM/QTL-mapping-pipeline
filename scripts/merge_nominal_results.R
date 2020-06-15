@@ -20,12 +20,10 @@ vcf <- opt$vcf
 prefix <- opt$prefix
 out_folder <- opt$out_folder
 
-
-vcf <- "/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz"
-
-out_folder <- "/sc/arion/projects/als-omics/QTL/NYGC_Freeze02_European_Feb2020/QTL-mapping-pipeline/results/Hippocampus_expression/peer15/"
-
-prefix <- "Hippocampus_expression_peer15_gene"
+# for testing
+#vcf <- "/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz"
+#out_folder <- "/sc/arion/projects/als-omics/QTL/NYGC_Freeze02_European_Feb2020/QTL-mapping-pipeline/results/Hippocampus_expression/peer15/"
+#prefix <- "Hippocampus_expression_peer15_gene"
 
 
 outFile <- paste0( out_folder, prefix, ".cis_qtl_nominal_tabixed.tsv" )
