@@ -76,7 +76,8 @@ all_res <-
         }else{
             write_tsv(df, path = tempFile, col_names = FALSE)
         }
-        
+        rm(df)
+        gc()        
 })
 
 # use cat to concatenate together 
