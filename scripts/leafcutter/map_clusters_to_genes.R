@@ -62,6 +62,7 @@ p <- arg_parser("LeafCutter: map clusters to genes")
 p <- add_argument(p, "intron_counts_file", help="Intron counts file from LeafCutter, typically <prefix>_perind.counts.gz")
 p <- add_argument(p, "exon_file", help="File listing all unique exons in annotation. Must have columns: chr, start, end, strand, gene_id[, gene_name].")
 p <- add_argument(p, "output_name", help="Output file name")
+p <- add_argument(p, "--strand", short="-o", help="whether junctions are stranded or not - default is 0 - unstranded. 1 = forward stranded; 2 = reverse stranded", default="0")
 p <- add_argument(p, "--output_dir", short="-o", help="Output directory", default=".")
 argv <- parse_args(p)
 
