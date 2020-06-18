@@ -11,7 +11,7 @@ dryrun=""
 mode="eQTL"
 
 print_usage() {
-  printf "Usage: ./run_all_QTLs.sh [-h] [-c] config list [-s] Snakefile\nOptions:\n\t-c file listing paths to config files\n\t-s Snakefile\n\t-n dry run mode\n\t-m mode [eQTL/sQTL]\n"
+  printf "Usage: ./run_all_QTLs.sh [-h] [-c] config list [-s] Snakefile\nOptions:\n\t-c path to config file; OR path to file listing paths to config files\n\t-s Snakefile\n\t-n dry run mode\n\t-m mode [eQTL/sQTL]\n"
 }
 
 while getopts 'c:s:m:nh' flag; do
@@ -44,14 +44,31 @@ if [ ! -e $snakefile ]; then
 fi 
  
 
+
+# CONFIG can be either a file containing a list of configs or just a single config.yaml
+
 #conda activate snakemake
 
-for config in $(cat $configList);do
- echo $config
+
+if grep -q "yaml" <<< "$configList"; then
+    echo using $configList
     if [ $mode == "eQTL" ]; then
-        bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
+        bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $configList -m eQTL"
     fi
     if [ $mode == "sQTL" ]; then
-    bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
+        bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $configList -m sQTL"
     fi
-done
+    exit 0 
+elif [ -f $configList ]; then
+
+    for config in $(cat $configList);do
+        echo $config
+            if [ $mode == "eQTL" ]; then
+                bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
+            fi
+            if [ $mode == "sQTL" ]; then
+                bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
+            fi
+    done
+
+fi
