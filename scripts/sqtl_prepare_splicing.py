@@ -103,6 +103,7 @@ if __name__=='__main__':
     parser.add_argument('--min_clu_ratio', default='0.001', type=str, help='Minimum fraction of reads in a cluster that support a junction')
     parser.add_argument('--max_intron_len', default='500000', type=str, help='Maximum intron length')
     parser.add_argument('--num_pcs', default=5, type=int, help='Number of principal components to calculate')
+    parser.add_argument('--coord_mode', default="TSS", type = str, help = "Whether to set the coordinates as the gene TSS (TSS) or the middle of the junction (junction_middle) ")
     parser.add_argument('--leafcutter_dir', default='/opt/leafcutter',
                         help="leafcutter directory, containing 'clustering' directory")
     parser.add_argument('-o', '--output_dir', default='.', help='Output directory')
@@ -248,25 +249,30 @@ if __name__=='__main__':
                 strand = cluster_id.split("_")[2]
                 for g in gene_ids:
                     gi = r['ID'] + ':' + g
-                    # add g as group ID
-                    # add strand
-                    gene_bed_df.append(tss_df.loc[g, ['chr', 'start', 'end']].tolist() + [gi] + [g] + [strand] + r.iloc[4:].tolist())
-                    group_s[gi] = g
+                    if args.coord_mode == "junction_middle":
+                        # get mid-point of junction
+                        start = int(s[1])
+                        end = int(s[2])
+                        middle = int( start  + ( (end - start) / 2))
+                        gene_bed_df.append( [s[0]] + [middle - 1] + [middle] + [gi] + [g] + [strand] + r.iloc[4:].tolist())
+                    if args.coord_mode == "TSS":
+                        gene_bed_df.append(tss_df.loc[g, ['chr', 'start', 'end']].tolist() + [gi] + [g] + [strand] + r.iloc[4:].tolist())                    
             else:
                 n += 1
         if n>0:
             print('    ** discarded {} introns without gene mapping'.format(n))
         print('  * writing FastQTL inputs')
-        # columns now include "gid" and "strand"
+        
+        # set column names - columns now include "gid" and "strand"
         QTLtools_columns = list(bed_df.columns[0:4]) + ["gid"] + ["strand"] + list(bed_df.columns[4:])
-
         gene_bed_df = pd.DataFrame(gene_bed_df, columns=QTLtools_columns)
+        # coordinate sort
         gene_bed_df = gene_bed_df.groupby('#Chr', sort=False, group_keys=False).apply(lambda x: x.sort_values('start'))
         # change sample IDs to participant IDs
         # this code was mangling my participant IDs
         #gene_bed_df.rename(columns={i:'-'.join(i.split('-')[:2]) for i in gene_bed_df.columns[4:]}, inplace=True)
         write_bed(gene_bed_df, os.path.join(args.output_dir, args.prefix+'.leafcutter.bed'))
-        pd.Series(group_s).sort_values().to_csv(os.path.join(args.output_dir, args.prefix+'.leafcutter.phenotype_groups.txt'), sep='\t')
+        pd.Series(group_s).sort_values().to_csv(os.path.join(args.output_dir, args.prefix+'.leafcutter.phenotype_groups.txt'), sep='\t', header=True)
         
         print('  * calculating PCs')
         pca = PCA(n_components=args.num_pcs)
@@ -275,7 +281,7 @@ if __name__=='__main__':
             columns=bed_df.columns[4:] )
         #columns=['-'.join(i.split('-')[:2]) for i in bed_df.columns[4:]])
         pc_df.index.name = 'ID'
-        pc_df.to_csv(args.prefix+'.leafcutter.PCs.txt', sep='\t')
+        pc_df.to_csv(args.prefix+'.leafcutter.PCs.txt', sep='\t', header = True)
         # clean up!
         shutil.rmtree(junc_dir)
         sorted_files = glob.glob("*sorted.gz")

@@ -4,8 +4,8 @@ import glob
 import pandas as pd
 import os
 
-leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
-GTF = "/sc/arion/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
+leafcutter_dir = "/sc/hydra/projects/ad-omics/data/software/leafcutter/"
+GTF = "/sc/hydra/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 GTFexons = GTF + ".exons.txt.gz" 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
@@ -73,7 +73,8 @@ if(mode == "eQTL"):
     #PEER_values = [15,30]
     group_by_values = ["gene"]
     #PEER_values = config["PEER_values"]
-    dataCode = dataCode + "_expression" 
+    dataCode = dataCode + "_expression"
+    qtl_window = int(1e6)
     #if(interaction is True):
     #    dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
@@ -91,6 +92,7 @@ if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
     PEER_values = [20]
+    qtl_window = int(1e5) # splicing window is now 100kb either side of junction middle - maximum junction length is 100kb so will cover all
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
     #if(interaction is True):
@@ -194,8 +196,9 @@ rule prepareSplicing:
         script = "scripts/sqtl_prepare_splicing.py",
         min_clu_reads = 30,
         min_clu_ratio = 0.001,
-        max_intron_len = 500000,
-        num_pcs = 10 # must be at least the number of samples!
+        max_intron_len = 100000, # cut down to 100k to reduce SNP testing distance
+        num_pcs = 10, # must be at least the number of samples!
+        coord_mode = "junction_middle" # set coordinates to either "TSS" or "junction_middle"
     shell:  
         "ml R/3.6.0;"
         "ml tabix;"
@@ -208,6 +211,7 @@ rule prepareSplicing:
         " --min_clu_reads {params.min_clu_reads} "
                 " --min_clu_ratio {params.min_clu_ratio} "
                 " --max_intron_len {params.max_intron_len} "
+                " --coord_mode {params.coord_mode} "
                 " --num_pcs {params.num_pcs} " 
         " --leafcutter_dir {params.leafcutter_dir}; "
         "rm *sorted.gz; " # clean up directory
@@ -399,12 +403,14 @@ rule tensorQTL_cis:
             shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
+             --window {qtl_window} \
              --mode cis ")
         if interaction is True:
             # the same 
             shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
+             --window {qtl_window} \
              --mode cis \
              --interaction {interaction_file}  --maf_threshold_interaction 0.05 ; \
              Rscript {params.script} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl_top_assoc.txt.gz  {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl.txt.gz"
@@ -427,12 +433,14 @@ rule tensorQTL_cis_nominal:
             shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
+             --window {qtl_window} \
              --mode cis_nominal ")
         if interaction is True:
             # the same 
             shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
+             --window {qtl_window} \
              --mode cis_nominal \
              --interaction {interaction_file}  --maf_threshold_interaction 0.05")
              
@@ -469,6 +477,7 @@ rule tensorQTL_cis_independent:
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
             --cis_output {input.cis_result} \
+            --window {qtl_window} \
             --mode cis_independent")
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
