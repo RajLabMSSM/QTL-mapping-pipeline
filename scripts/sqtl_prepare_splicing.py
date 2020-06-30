@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import argparse
 import subprocess
+import sys
 import os
 import gzip
 import contextlib
@@ -103,7 +104,7 @@ if __name__=='__main__':
     parser.add_argument('--min_clu_ratio', default='0.001', type=str, help='Minimum fraction of reads in a cluster that support a junction')
     parser.add_argument('--max_intron_len', default='500000', type=str, help='Maximum intron length')
     parser.add_argument('--num_pcs', default=5, type=int, help='Number of principal components to calculate')
-    parser.add_argument('--coord_mode', default="TSS", type = str, help = "Whether to set the coordinates as the gene TSS (TSS) or the middle of the junction (junction_middle) ")
+    parser.add_argument('--coord_mode', default="TSS", type = str, help = "Whether to set the coordinates as the gene TSS (TSS) or the middle of the cluster (cluster_middle) ")
     parser.add_argument('--leafcutter_dir', default='/opt/leafcutter',
                         help="leafcutter directory, containing 'clustering' directory")
     parser.add_argument('-o', '--output_dir', default='.', help='Output directory')
@@ -233,7 +234,23 @@ if __name__=='__main__':
         # add 'chr' prefix
         bed_df['#Chr'] = 'chr'+bed_df['#Chr'].astype(str)
         bed_df['ID'] = 'chr'+bed_df['ID']
-
+        
+        if args.coord_mode == "cluster_middle":
+            # create a dataframe of cluster starts and ends, indexed by clusterID
+            
+            cluster_id = bed_df.columns[3]
+            cluster_df = bed_df[cluster_id].str.split(":", n = 4, expand = True)
+            print(cluster_df)
+            #cluster_df.to_csv("test_cluster_df.tsv", sep='\t', header = True)
+            # for each junction extract start and end
+            # group by clusterID and summarise min(start) and max(end)
+            cluster_df.columns = ["chr", "start", "end", "clusterID"]
+            cluster_df = cluster_df.astype({"chr": str, "start": int, "end": int, "clusterID": str})
+            cluster_grp_df = cluster_df.groupby("clusterID").agg({'chr': 'first', 'start':min, 'end':max}) 
+            # convert start and end to middle-1, middle
+            cluster_grp_df['end'] = (cluster_grp_df['start'] + ( ( cluster_grp_df['end'] - cluster_grp_df['start'] ) / 2 ) ).astype(int)
+            cluster_grp_df['start'] = cluster_grp_df['end'] - 1
+            #cluster_grp_df.to_csv("test_cluster_grp_df.tsv", sep='\t', header = True) 
         # debugging - pickle bed_df
         #filehandler = open("bed_df.pickle", mode = 'wb')
         #pickle.dump(bed_df, filehandler)
@@ -249,12 +266,11 @@ if __name__=='__main__':
                 strand = cluster_id.split("_")[2]
                 for g in gene_ids:
                     gi = r['ID'] + ':' + g
-                    if args.coord_mode == "junction_middle":
-                        # get mid-point of junction
-                        start = int(s[1])
-                        end = int(s[2])
-                        middle = int( start  + ( (end - start) / 2))
-                        gene_bed_df.append( [s[0]] + [middle - 1] + [middle] + [gi] + [g] + [strand] + r.iloc[4:].tolist())
+                    if args.coord_mode == "cluster_middle":
+                         # extract clusterID and match on cluster_grp_df with cluster midpoint coords
+                         clu = s[3]
+                         gene_bed_df.append(cluster_grp_df.loc[clu, ['chr', 'start', 'end']].tolist() + [gi] + [g] + [strand] + r.iloc[4:].tolist())   
+                    
                     if args.coord_mode == "TSS":
                         gene_bed_df.append(tss_df.loc[g, ['chr', 'start', 'end']].tolist() + [gi] + [g] + [strand] + r.iloc[4:].tolist())                    
             else:
@@ -262,11 +278,12 @@ if __name__=='__main__':
         if n>0:
             print('    ** discarded {} introns without gene mapping'.format(n))
         print('  * writing FastQTL inputs')
-        
         # set column names - columns now include "gid" and "strand"
         QTLtools_columns = list(bed_df.columns[0:4]) + ["gid"] + ["strand"] + list(bed_df.columns[4:])
         gene_bed_df = pd.DataFrame(gene_bed_df, columns=QTLtools_columns)
-        # coordinate sort
+        print( gene_bed_df.head() ) 
+        #gene_bed_df.to_csv("test_gene_bed_df.tsv", sep ="\t", header=True)
+        #coordinate sort
         gene_bed_df = gene_bed_df.groupby('#Chr', sort=False, group_keys=False).apply(lambda x: x.sort_values('start'))
         # change sample IDs to participant IDs
         # this code was mangling my participant IDs

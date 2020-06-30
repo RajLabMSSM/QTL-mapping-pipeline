@@ -2,7 +2,8 @@ dataCode: Cerebellum
 sampleKey: example/Cerebellum_sample_key.txt
 genotypePCs: example/Cerebellum_genotype_PCs.txt
 covariateFile: example/Cerebellum_wgs_covariates.txt
-junctionFileList: example/Cerebellum_junction_paths.txt
+junctionFileList: example/test_junction_paths.txt
 PEER_values: '30'
 VCF: example/chrAll_QCFinished_MAF0.01.vcf.gz
 countMatrixRData: example/gene_matrix.RData
+mode: sQTL

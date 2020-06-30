@@ -198,7 +198,7 @@ rule prepareSplicing:
         min_clu_ratio = 0.001,
         max_intron_len = 100000, # cut down to 100k to reduce SNP testing distance
         num_pcs = 10, # must be at least the number of samples!
-        coord_mode = "junction_middle" # set coordinates to either "TSS" or "junction_middle"
+        coord_mode = "cluster_middle" # set coordinates to either "TSS" or "cluster_middle"
     shell:  
         "ml R/3.6.0;"
         "ml tabix;"
