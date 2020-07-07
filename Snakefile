@@ -192,8 +192,8 @@ rule prepareSplicing:
         leafcutter_bed_index = prefix + ".leafcutter.bed.gz.tbi",
         leafcutter_pcs = prefix + ".leafcutter.PCs.txt"
     params: 
-        leafcutter_dir = "scripts/leafcutter/", # all leafcutter scripts hosted in a folder - some had to be converted py2 -> py3
-        script = "scripts/sqtl_prepare_splicing.py",
+        leafcutter_dir = os.getcwd() + "/scripts/leafcutter/", # all leafcutter scripts hosted in a folder - some had to be converted py2 -> py3
+        script = os.getcwd() + "/scripts/sqtl_prepare_splicing.py",
         min_clu_reads = 30,
         min_clu_ratio = 0.001,
         max_intron_len = 100000, # cut down to 100k to reduce SNP testing distance
@@ -207,7 +207,7 @@ rule prepareSplicing:
                 " {input.junction_file_list} "
                 " {input.exon_list} "
                 " {input.genes_gtf} "
-                " {prefix} "
+                " {dataCode} "
                 " {input.sample_key} "
         " --min_clu_reads {params.min_clu_reads} "
                 " --min_clu_ratio {params.min_clu_ratio} "
@@ -215,8 +215,8 @@ rule prepareSplicing:
                 " --coord_mode {params.coord_mode} "
                 " --num_pcs {params.num_pcs} " 
         " --leafcutter_dir {params.leafcutter_dir}; "
-        "rm *sorted.gz; " # clean up directory
-        "rm {prefix}_perind.counts.filtered.gz.phen_* "
+        #"rm *sorted.gz; " # clean up directory
+        #"rm {prefix}_perind.counts.filtered.gz.phen_* "
 
 # from Francois Auguet at GTEX
 # eQTLs - first prepare expression from RSEM count matrix
