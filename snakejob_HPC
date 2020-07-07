@@ -1,0 +1,58 @@
+# submit snakejob as a job
+
+#!/bin/bash
+#BSUB -J snakejob_job
+#BSUB -P acc_als-omics
+#BSUB -q express
+#BSUB -n 1
+#BSUB -R span[hosts=1]
+#BSUB -W 12:00
+#BSUB -R rusage[mem=3000]
+#BSUB -o cluster/%J.stdout
+#BSUB -eo cluster/%J.stderr
+#BSUB -L /bin/bash
+
+
+print_usage() {
+  printf "Usage: bsub < snakejob_HPC [-h] [-c] config file [-s] Snakefile\nOptions:\n\t-c file listing paths to config files\n\t-s Snakefile\n\t-n dry run mode\n\t-m mode [eQTL/sQTL]\n"
+}
+
+snakefile=Snakefile
+
+while getopts 'c:s:m:nh' flag; do
+  case "${flag}" in
+    c) config="${OPTARG}" ;;
+    s) snakefile="${OPTARG}" ;;
+    m) mode="${OPTARG}" ;;
+    n) dryrun="-n" ;;
+    h) print_usage
+       exit 1 ;;
+  esac
+done
+
+echo config used is $config
+echo snakefile used is $snakefile 
+echo mode is $mode
+
+if [ ! -z "$dryrun" ];then
+    echo "dry run mode" 
+fi
+
+if [ ! -e $config ]; then
+    echo "error: config file does not exist"  
+    exit 0
+fi
+
+if [ ! -e $snakefile ]; then
+    echo "error: snakefile does not exist" 
+    exit 0
+fi
+
+
+
+source activate QTL-pipeline
+
+snakemake -s $snakefile --configfile $config --unlock --config mode=$mode
+# fixes phenomenon with updated input files - weird quirk of pipeline when running again
+snakemake -s $snakefile --configfile $config --touch --config mode=$mode
+./snakejob -s Snakefile -c $config -m $mode 

@@ -91,7 +91,7 @@ if(mode == "eQTL"):
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
-    PEER_values = [10,15,20]
+    #PEER_values = [0,5,10,15,20]
     qtl_window = int(1e5) # splicing window is now 100kb either side of junction middle - maximum junction length is 100kb so will cover all
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
