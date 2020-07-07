@@ -202,6 +202,7 @@ rule prepareSplicing:
     shell:  
         "ml R/3.6.0;"
         "ml tabix;"
+        "cd {outFolder};"
         "python {params.script} "
                 " {input.junction_file_list} "
                 " {input.exon_list} "
@@ -402,6 +403,7 @@ rule tensorQTL_cis:
         if interaction is False:
             shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --phenotype_groups {input.groups} \
              --covariates {input.covariates} \
              --window {qtl_window} \
              --mode cis ")
@@ -409,6 +411,7 @@ rule tensorQTL_cis:
             # the same 
             shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+             --phenotype_groups {input.groups} \
              --covariates {input.covariates} \
              --window {qtl_window} \
              --mode cis \
