@@ -190,5 +190,5 @@ dependencies:
     - tzlocal==2.0.0
     - wcwidth==0.1.8
     - tensorqtl==1.0.2
-prefix:  /sc/hydra/projects/als-omics/conda/envs/QTL-pipeline
+prefix:  /sc/arion/projects/als-omics/conda/envs/QTL-pipeline
 
