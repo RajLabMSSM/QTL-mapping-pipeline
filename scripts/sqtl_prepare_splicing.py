@@ -213,7 +213,7 @@ if __name__=='__main__':
         bed_df = []
         for f in bed_files:
             bed_df.append(pd.read_csv(f, sep='\t', dtype=str))
-        bed_df = pd.concat(bed_df, axis=0)
+        bed_df = pd.concat(bed_df, axis=0, sort = False) # pandas gave me a warning - check whether this needs to be false or true
         print('    ** sorting')
         # leafcutter doesn't produce output for chrX --> numeric sort
         for c in ['#Chr', 'start', 'end']:

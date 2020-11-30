@@ -20,12 +20,12 @@ if "interaction" not in config.keys():
     config["interaction"] = False
 interaction = bool(config["interaction"])
 
-print(interaction)
 # put into config
 conditional_qtls = False
 
 # common config variables - all modes require these
 mode = config["mode"]
+
 dataCode = config["dataCode"]
 VCF = config["VCF"]
 VCFstem = VCF.split(".vcf.gz")[0]
@@ -54,8 +54,6 @@ else:
     covariateFile = config["covariateFile"]
     PEER_values = config["PEER_values"]
 
-
-
 if( interaction is True ):
     print(" * interaction mode selected")
     if "interaction_name" not in config.keys():
@@ -70,7 +68,7 @@ if(interaction is True):
 
 # expression QTLs
 if(mode == "eQTL"):
-    #PEER_values = [15,30]
+    PEER_values = [30]
     group_by_values = ["gene"]
     #PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression"
@@ -91,6 +89,7 @@ if(mode == "eQTL"):
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
+    PEER_values = [20]
     #PEER_values = [0,5,10,15,20]
     qtl_window = int(1e5) # splicing window is now 100kb either side of junction middle - maximum junction length is 100kb so will cover all
     #PEER_values = config["PEER_values"]
@@ -202,7 +201,7 @@ rule prepareSplicing:
     shell:  
         "ml R/3.6.0;"
         "ml tabix;"
-        "cd {outFolder};"
+        #"cd {outFolder};"
         "python {params.script} "
                 " {input.junction_file_list} "
                 " {input.exon_list} "
@@ -215,6 +214,7 @@ rule prepareSplicing:
                 " --coord_mode {params.coord_mode} "
                 " --num_pcs {params.num_pcs} " 
         " --leafcutter_dir {params.leafcutter_dir}; "
+        " mv -f {dataCode}* {outFolder} "
         #"rm *sorted.gz; " # clean up directory
         #"rm {prefix}_perind.counts.filtered.gz.phen_* "
 
@@ -398,10 +398,11 @@ rule tensorQTL_cis:
         stem = prefix + "_genotypes",
         num_peer = "{PEER_N}",
         group = "{group_by}",
-        group_string = group_string
+        group_string = group_string,
+        script = "scripts/interaction_qvalue.R" 
     run:
         if interaction is False:
-            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --phenotype_groups {input.groups} \
              --covariates {input.covariates} \
@@ -409,14 +410,14 @@ rule tensorQTL_cis:
              --mode cis ")
         if interaction is True:
             # the same 
-            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --phenotype_groups {input.groups} \
              --covariates {input.covariates} \
              --window {qtl_window} \
              --mode cis \
              --interaction {interaction_file}  --maf_threshold_interaction 0.05 ; \
-             Rscript {params.script} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl_top_assoc.txt.gz  {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl.txt.gz"
+             #Rscript {params.script} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl_top_assoc.txt.gz  {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl.txt.gz"
         )
 
 rule tensorQTL_cis_nominal:
@@ -433,14 +434,13 @@ rule tensorQTL_cis_nominal:
         num_peer = "{PEER_N}",
     run:
         if interaction is False:
-            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
              --window {qtl_window} \
              --mode cis_nominal ")
         if interaction is True:
-            # the same 
-            shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
              --window {qtl_window} \
@@ -476,7 +476,7 @@ rule tensorQTL_cis_independent:
         group = "{group_by}",
         group_string = group_string
     run:
-        shell( "python3 -m tensorqtl {params.stem} {input.phenotypes} \
+        shell( "conda deactivate; conda activate tensorqtl; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
             --cis_output {input.cis_result} \

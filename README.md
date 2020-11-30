@@ -13,10 +13,13 @@ Jack
 
 ## conda recipe
 
-YAML file is now in the repo 
+YAML files are now procided in the repo.
+
+tensorQTL is now in it's own environment 
 
 ```
 conda env create -f QTL-pipeline.yml
+conda env create -f tensorqtl.yml
 ```
 
 ## TensorQTL dev version
@@ -27,11 +30,11 @@ Therefore you must manually install this from where we keep it in the communal s
 (This assumes you have access to ad-omics), otherwise clone the repo from https://github.com/broadinstitute/tensorqtl
 
 ```
-conda activate QTL-pipeline
+conda activate tensorqtl
 cd /sc/hydra/projects/ad-omics/data/software/tensorqtl
 pip install -r install/requirements.txt .
 pip install --upgrade pandas
-pip install --upgrade snakemake
+#pip install --upgrade snakemake
 
 ```
 
