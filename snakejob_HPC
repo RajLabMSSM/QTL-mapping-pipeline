@@ -52,7 +52,7 @@ fi
 
 source activate QTL-pipeline
 
-snakemake -s $snakefile --configfile $config --unlock --config mode=$mode
+snakemake -s $snakefile --configfile $config --unlock --config mode=$mode --quiet
 # fixes phenomenon with updated input files - weird quirk of pipeline when running again
-snakemake -s $snakefile --configfile $config --touch --config mode=$mode
+snakemake -s $snakefile --configfile $config --touch --config mode=$mode --quiet
 ./snakejob -s Snakefile -c $config -m $mode 

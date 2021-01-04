@@ -4,8 +4,8 @@ import glob
 import pandas as pd
 import os
 
-leafcutter_dir = "/sc/hydra/projects/ad-omics/data/software/leafcutter/"
-GTF = "/sc/hydra/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
+leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
+GTF = "/sc/arion/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 GTFexons = GTF + ".exons.txt.gz" 
 QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
@@ -68,9 +68,9 @@ if(interaction is True):
 
 # expression QTLs
 if(mode == "eQTL"):
-    PEER_values = [30]
+    #PEER_values = [30]
     group_by_values = ["gene"]
-    #PEER_values = config["PEER_values"]
+    PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression"
     qtl_window = int(1e6)
     #if(interaction is True):
@@ -89,10 +89,10 @@ if(mode == "eQTL"):
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
-    PEER_values = [20]
+    #PEER_values = [20]
     #PEER_values = [0,5,10,15,20]
     qtl_window = int(1e5) # splicing window is now 100kb either side of junction middle - maximum junction length is 100kb so will cover all
-    #PEER_values = config["PEER_values"]
+    PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
     #if(interaction is True):
     #    dataCode = dataCode  + "_interaction_" + interaction_name
@@ -123,7 +123,7 @@ rule collapseGTF:
     input:
         GTF
     output:
-        "results/collapsed.gtf"
+        prefix + "_collapsed.gtf"
     params:
         script = "scripts/collapse_annotation.py"
     shell:
@@ -147,7 +147,7 @@ rule createGCTFiles:
     input:
         counts = countMatrixRData,
         key = sample_key,
-        gtf = "results/collapsed.gtf"
+        gtf = prefix + "_collapsed.gtf"
     output:
         counts_gct_file = prefix + "_counts.gct",
         tpm_gct_file = prefix + "_tpm.gct"
@@ -165,7 +165,7 @@ rule VCF_chr_list:
         VCF = VCFstem + ".vcf.gz",
         index = VCFstem + ".vcf.gz.tbi"
     output:
-        "results/vcf_chr_list.txt"
+        prefix + "_vcf_chr_list.txt"
     shell:
         "tabix -l {input.VCF} > {output}"
 
@@ -224,10 +224,10 @@ rule prepareSplicing:
 # then add PEER factors to known covariates
 rule prepareExpression:
     input:
-        vcf_chr_list = "results/vcf_chr_list.txt",
+        vcf_chr_list = prefix + "_vcf_chr_list.txt",
         tpm_gct = prefix + "_tpm.gct",
         counts_gct =  prefix + "_counts.gct",
-        gtf = "results/collapsed.gtf",
+        gtf = prefix + "_collapsed.gtf",
         sample_key = sample_key
     output:
         prefix + ".expression.bed.gz"

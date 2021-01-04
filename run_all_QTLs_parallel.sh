@@ -52,22 +52,24 @@ fi
 
 if grep -q "yaml" <<< "$configList"; then
     echo using $configList
+    configLabel=$(basename ${configList%_config.yaml})
     if [ $mode == "eQTL" ]; then
-        bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $configList -m eQTL"
+        bsub -J eQTL_${configList} -P acc_als-omics -W 24:00 -n 1 -q premium  -o cluster/eQTL_${configLabel}.stdout -e cluster/eQTL_${configLabel}.stderr  -L /bin/bash  "sh $script -s Snakefile -c $configList -m eQTL"
     fi
     if [ $mode == "sQTL" ]; then
-        bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $configList -m sQTL"
+        bsub -J sQTL_${configList} -P acc_als-omics -W 24:00 -n 1 -q premium  -o cluster/sQTL_${configLabel}.stdout -e cluster/sQTL_${configLabel}.stderr  -L /bin/bash  "sh $script -s Snakefile -c $configList -m sQTL"
     fi
     exit 0 
 elif [ -f $configList ]; then
 
     for config in $(cat $configList);do
         echo $config
+        configLabel=$(basename ${config%_config.yaml})
             if [ $mode == "eQTL" ]; then
-                bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
+                bsub -J eQTL_${configLabel} -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/eQTL_${configLabel}.stdout -e cluster/eQTL_${configLabel}.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m eQTL"
             fi
             if [ $mode == "sQTL" ]; then
-                bsub -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/snakejob_HPC.stdout -e cluster/snakejob_HPC.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
+                bsub -J sQTL_${configLabel}  -P acc_als-omics -W 24:00 -n 1 -q premium -o cluster/sQTL_${configLabel}.stdout -e cluster/sQTL_${configLabel}.stderr -L /bin/bash  "sh $script -s Snakefile -c $config -m sQTL"
             fi
     done
 
