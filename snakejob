@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # -m {cluster.partition}"
-
+source activate snakemake
 set -e
 
 if [ ! -d "cluster" ]; then
