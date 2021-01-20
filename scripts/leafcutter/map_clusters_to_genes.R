@@ -26,15 +26,20 @@ get_intron_meta <- function(introns) {
 #' Work out which gene each cluster belongs to. Note the chromosome names used in the two inputs must match.
 #' @param intron_meta Data frame describing the introns, usually from get_intron_meta
 #' @param exons_table Table of exons, see e.g. /data/gencode19_exons.txt.gz
+#' @param flip Whether to flip strand - for when junctions are reverse to reference
 #' @return Data.frame with cluster ids and genes separated by commas
 #' @import dplyr
 #' @export
-map_clusters_to_genes <- function(intron_meta, exons_table) {
+map_clusters_to_genes <- function(intron_meta, exons_table, flip = FALSE) {
   gene_df <- foreach (chr=sort(unique(intron_meta$chr)), .combine=rbind) %dopar% {
-
+    
     intron_chr <- intron_meta[ intron_meta$chr==chr, ]
     exons_chr <- exons_table[exons_table$chr==chr, ]
-
+    
+    if(flip == TRUE){
+        intron_chr$strand <- ifelse(intron_chr$strand == "+", "-", "+")
+    }
+    
     exons_chr$temp <- exons_chr$start
     intron_chr$temp <- intron_chr$end
     three_prime_matches <- inner_join( intron_chr, exons_chr, by=c("strand", "temp") )
@@ -77,4 +82,13 @@ stopifnot(is.element('gene_id', colnames(exon_table)))
 exon_table[, 'gene_name'] <- exon_table[, 'gene_id']
 
 m <- map_clusters_to_genes(intron_meta, exon_table)
-write.table(m, file.path(argv$output_dir, argv$output_name), sep = "\t", quote=FALSE, row.names=FALSE)
+message(paste0(" * ", nrow(m), " gene-cluster matches!"))
+m2 <- map_clusters_to_genes(intron_meta, exon_table, flip = TRUE) 
+message(paste0(" * with strand flipped: ", nrow(m2), " gene-cluster matches!"))
+
+if(nrow(m) > nrow(m2) ){ 
+    out_file <- m
+}else{
+    out_file <- m2
+}
+write.table(out_file, file.path(argv$output_dir, argv$output_name), sep = "\t", quote=FALSE, row.names=FALSE)
