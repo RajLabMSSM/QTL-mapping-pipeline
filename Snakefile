@@ -42,6 +42,8 @@ BAM_SAMPLES = []
 interaction_string = ""
 group_string = ""
 
+
+## MODE SELECTION - MATCH BAMS TO VARIANTS
 if(mode == "mbv"):
     bamFolder = config["bamFolder"]
     bamSuffix = config["bamSuffix"]
@@ -66,7 +68,7 @@ if(interaction is True):
     interaction_file = config["interaction_file"]
     interaction_string = " --interaction {interaction_file}  --maf_threshold_interaction 0.05 "
 
-# expression QTLs
+# MODE SELECTION - expression QTLs
 if(mode == "eQTL"):
     #PEER_values = [30]
     group_by_values = ["gene"]
@@ -85,7 +87,7 @@ if(mode == "eQTL"):
         final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
     countMatrixRData = config["countMatrixRData"]
 
-# splicing QTLs
+# MODE SELECTION - splicing QTLs
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
     # PEER values for sQTLs hard-coded at 20
@@ -108,6 +110,7 @@ if(mode == "sQTL"):
     if( conditional_qtls == True ):
         final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
 
+## NEW MODES TO GO HERE - EDITING QTLs, PROTEIN QTLs etc.
     
 print(" * QTL-mapping pipeline *")
 print(" Jack Humphrey 2019-2020 ")
@@ -285,28 +288,6 @@ rule combineCovariates:
         covariate_df = covariate_df[ ["ID"] + list(phenotype_df.columns[4:]) ]
         # write out
         covariate_df.to_csv(output.cov_df, header = True, index = False, sep = "\t")
-
-
-# deprecated - may be able to reuse with tensorQTL but permutation step already performs qvalue testing
-#rule summariseQTLtoolsResults:
-#    input:
-        #nominal_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.nominals.txt", CHUNK = chunk_range, allow_missing=True),
-        #permutation_files = expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk{CHUNK}.permutations.txt", CHUNK = chunk_range, allow_missing=True)
-#    output:
-#        full_nom = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.nominal.full.txt.gz",
-#        full_perm = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.permutation.full.txt.gz",
-#        sig = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes.significant.txt"
-#    params:
-#        nominal_wildcard = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*nominals.txt",
-#        permutation_wildcard  = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_chunk*permutations.txt", 
-#        script = "scripts/runFDR_cis.R",
-#        file_prefix = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}" + "_results.genes",
-#        # cat together all nominal and permutation files
-#    shell:
-#        "ml R/3.6.0;"
-#        "cat {params.nominal_wildcard} | gzip -c > {output.full_nom};"
-#        "cat {params.permutation_wildcard} | gzip -c > {output.full_perm};"
-#        "Rscript {params.script} {output.full_perm} 0.05 {params.file_prefix};"
 
 
 ## TENSORQTL -----------------------------------------------------------------------
