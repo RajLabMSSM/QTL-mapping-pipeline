@@ -7,7 +7,6 @@ import os
 leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
 GTF = "/sc/arion/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
 GTFexons = GTF + ".exons.txt.gz" 
-QTLtools = "/hpc/packages/minerva-centos7/qtltools/1.2/bin/QTLtools"
 
 nPerm = 10000 # number of permutations of the permutation pass
 
@@ -184,10 +183,10 @@ rule prepareSplicing:
         exon_list = GTFexons, # hg38 exons from gencode v30 with gene_id and gene_name
         genes_gtf = GTF # full GTF or just gene starts and ends?
     output:
-        counts = prefix + "_perind.counts.gz",
-        counts_numers = prefix + "_perind_numers.counts.gz",
-        clusters_pooled = prefix + "_pooled.gz",
-        clusters_refined = prefix + "_refined.gz",
+        #counts = prefix + "_perind.counts.gz",
+        #counts_numers = prefix + "_perind_numers.counts.gz",
+        #clusters_pooled = prefix + "_pooled.gz",
+        #clusters_refined = prefix + "_refined.gz",
 #       clusters_to_genes = prefix + ".leafcutter.clusters_to_genes.txt",
         phenotype_groups = prefix + ".leafcutter.phenotype_groups.txt",
         leafcutter_bed = prefix + ".leafcutter.bed.gz",
@@ -200,7 +199,8 @@ rule prepareSplicing:
         min_clu_ratio = 0.001,
         max_intron_len = 100000, # cut down to 100k to reduce SNP testing distance
         num_pcs = 10, # must be at least the number of samples!
-        coord_mode = "cluster_middle" # set coordinates to either "TSS" or "cluster_middle"
+        coord_mode = "cluster_middle"
+        #coord_mode = "cluster_middle" # set coordinates to either "TSS" or "cluster_middle"
     shell:  
         "ml R/3.6.0;"
         "ml tabix;"
