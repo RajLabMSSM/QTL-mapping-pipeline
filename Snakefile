@@ -4,20 +4,20 @@ import glob
 import pandas as pd
 import os
 
-leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
-GTF = "/sc/arion/projects/ad-omics/data/references/hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
-GTFexons = GTF + ".exons.txt.gz" 
-
 nPerm = 10000 # number of permutations of the permutation pass
 
 #shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
-R_VERSION = "R/3.6.0"
-shell.prefix('export PS1=""; ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; ml qtltools/1.2; ml {R_VERSION}; conda activate QTL-pipeline;')
+R_VERSION = "R/4.0.3"
+shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
 
 # interaction mode - set default to False
 if "interaction" not in config.keys():
     config["interaction"] = False
 interaction = bool(config["interaction"])
+
+leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
+GTF = config["GTF"]
+GTFexons = GTF + ".exons.txt.gz" 
 
 # put into config
 conditional_qtls = False
@@ -41,6 +41,7 @@ BAM_SAMPLES = []
 interaction_string = ""
 group_string = ""
 
+CHROM = subprocess.run(["tabix","-l", VCF], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
 
 ## MODE SELECTION - MATCH BAMS TO VARIANTS
 if(mode == "mbv"):
@@ -119,6 +120,7 @@ print(" * Mode selected is: %s" % mode)
 
 rule all:
     input:
+        #expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt", PEER_N = PEER_values, group_by = group_by_values)
         final_output
 
 rule collapseGTF:
@@ -140,7 +142,7 @@ rule getExonsFromGTF:
     output:
         GTF + ".exons.txt.gz"
     shell:
-        "ml R/3.6.0; "
+        "ml {R_VERSION}; "
         "Rscript {params.script} "
         " --gtf {input} "
         " --outFolder {params.out_folder} "
@@ -154,7 +156,7 @@ rule createGCTFiles:
         counts_gct_file = prefix + "_counts.gct",
         tpm_gct_file = prefix + "_tpm.gct"
     shell:
-        "ml R/3.6.0; "
+        "ml {R_VERSION}; "
         "Rscript scripts/create_GCT_files.R "
         " --counts {input.counts} "
         " --key {input.key} "
@@ -202,7 +204,7 @@ rule prepareSplicing:
         coord_mode = "cluster_middle"
         #coord_mode = "cluster_middle" # set coordinates to either "TSS" or "cluster_middle"
     shell:  
-        "ml R/3.6.0;"
+        "ml {R_VERSION};"
         "ml tabix;"
         #"cd {outFolder};"
         "python {params.script} "
@@ -244,7 +246,6 @@ rule prepareExpression:
         " --count_threshold 6 "
         " --sample_frac_threshold 0.2 "
         " --normalization_method tmm "
-
        
 rule runPEER:
     input:
@@ -257,7 +258,7 @@ rule runPEER:
         outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.PEER_covariates.txt"
     run:
         if int(wildcards.PEER_N) > 0:
-            shell("ml R/3.6.0; ")
+            shell("ml {R_VERSION}; ")
             shell("Rscript {params.script} {input} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer} {params.num_peer}")
         else:
             shell("touch {output}")
@@ -281,7 +282,8 @@ rule combineCovariates:
         else:
             peerFile = ""
         shell("python {params.script} {peerFile} \
-             --genotype_pcs {input.geno} {input.covariates} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}.{wildcards.group_by} ")
+            --genotype_pcs {input.geno} {input.covariates} \
+            {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}.{wildcards.group_by}")
         # make sure combined covariate file has column names in same order as phenotype file
         phenotype_df = pd.read_csv(input.pheno, sep='\t', dtype={'#chr':str, '#Chr':str})
         covariate_df = pd.read_csv(output.cov_df, sep = "\t" )
@@ -383,19 +385,21 @@ rule tensorQTL_cis:
         script = "scripts/interaction_qvalue.R" 
     run:
         if interaction is False:
-            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --phenotype_groups {input.groups} \
              --covariates {input.covariates} \
              --window {qtl_window} \
+             --load_split \
              --mode cis ")
         if interaction is True:
             # the same 
-            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --phenotype_groups {input.groups} \
              --covariates {input.covariates} \
              --window {qtl_window} \
+             --load_split \
              --mode cis \
              --interaction {interaction_file}  --maf_threshold_interaction 0.05 ; \
              #Rscript {params.script} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl_top_assoc.txt.gz  {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl.txt.gz"
@@ -408,29 +412,31 @@ rule tensorQTL_cis_nominal:
         phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
         covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
     output:
-        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
     params:
         group = "{group_by}",
         stem = prefix + "_genotypes",
         num_peer = "{PEER_N}",
     run:
         if interaction is False:
-            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
              --window {qtl_window} \
+             --load_split \
              --mode cis_nominal ")
         if interaction is True:
-            shell( "conda deactivate; conda activate tensorqtl; module purge; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
              --window {qtl_window} \
+             --load_split \
              --mode cis_nominal \
              --interaction {interaction_file}  --maf_threshold_interaction 0.05")
              
 rule mergeNominalResult:
     input:
-        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.chr{CHROM}.parquet", CHROM = list(range(1,23)),  allow_missing=True )
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
     output:
         outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz",
         outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz.tbi", 
@@ -439,7 +445,7 @@ rule mergeNominalResult:
         script = "scripts/merge_nominal_results.R"
     
     shell:
-        " ml R/3.6.0; ml arrow;"
+        " ml {R_VERSION}; ml snappy;"
         " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "    
 
 rule tensorQTL_cis_independent:
@@ -457,11 +463,12 @@ rule tensorQTL_cis_independent:
         group = "{group_by}",
         group_string = group_string
     run:
-        shell( "conda deactivate; conda activate tensorqtl; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+        shell( "conda deactivate; conda activate tensorqtl; ml purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
              {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
              --covariates {input.covariates} \
             --cis_output {input.cis_result} \
             --window {qtl_window} \
+            --load_split \
             --mode cis_independent")
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------

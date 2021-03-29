@@ -17,19 +17,24 @@ print('Combining covariates ... ', end='', flush=True)
 expression_df = pd.read_csv(args.expression_covariates, sep='\t', index_col=0, dtype=str)
 if args.genotype_pcs is not None:
     genotype_df = pd.read_csv(args.genotype_pcs, sep='\t', index_col=0, dtype=str)
+    # Match columns between covariates and genotype_pcs files
+    genotype_df = genotype_df[genotype_df.columns.intersection(expression_df.columns)]
+    expression_df = expression_df[genotype_df.columns.intersection(expression_df.columns)]
     combined_df = pd.concat([genotype_df[expression_df.columns], expression_df], axis=0)
 else:
     combined_df = expression_df
 for c in args.add_covariates:
-    additional_df = pd.read_csv(c, sep='\t', index_col=0, dtype=str)
-    combined_df = pd.concat([combined_df, additional_df[expression_df.columns]], axis=0)
+    additional_df = pd.read_csv(c, sep='\t', index_col=0, dtype=str) 
+    # Match columns between other covariates
+    combined_df = combined_df[combined_df.columns.intersection(additional_df.columns)]
+    combined_df = pd.concat([combined_df, additional_df[combined_df.columns.intersection(additional_df.columns)]], axis=0)
 
 # identify and drop colinear covariates
 C = combined_df.astype(np.float64).T
 Q,R = np.linalg.qr(C-np.mean(C, axis=0))
 colinear_ix = np.abs(np.diag(R)) < np.finfo(np.float64).eps * C.shape[1]
 if np.any(colinear_ix):
-    print('Colinear covariates detected:')
+    print('\n' + 'Colinear covariates detected:')
     for i in C.columns[colinear_ix]:
         print("  * dropped '{}'".format(i))
     combined_df = combined_df.loc[~colinear_ix]

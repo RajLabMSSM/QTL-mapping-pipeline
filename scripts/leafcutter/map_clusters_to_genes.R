@@ -31,7 +31,7 @@ get_intron_meta <- function(introns) {
 #' @import dplyr
 #' @export
 map_clusters_to_genes <- function(intron_meta, exons_table, flip = FALSE) {
-  gene_df <- foreach (chr=sort(unique(intron_meta$chr)), .combine=rbind) %dopar% {
+  gene_df <- foreach (chr=sort(unique(exons_table$chr)), .combine=rbind) %dopar% {
     
     intron_chr <- intron_meta[ intron_meta$chr==chr, ]
     exons_chr <- exons_table[exons_table$chr==chr, ]
@@ -39,6 +39,8 @@ map_clusters_to_genes <- function(intron_meta, exons_table, flip = FALSE) {
     if(flip == TRUE){
         intron_chr$strand <- ifelse(intron_chr$strand == "+", "-", "+")
     }
+    print(head(exons_chr))
+    print(head(intron_chr))
     
     exons_chr$temp <- exons_chr$start
     intron_chr$temp <- intron_chr$end
@@ -52,11 +54,10 @@ map_clusters_to_genes <- function(intron_meta, exons_table, flip = FALSE) {
 
     all_matches <- all_matches[!duplicated(all_matches),]
 
-    if (nrow(all_matches)==0) return(NULL)
+    if (nrow(all_matches)==0) return(data.frame(clu = NA, gene_name = NA))
     all_matches$clu <- paste(chr,all_matches$clu,sep=':')
     all_matches
   }
-
   clu_df <- gene_df %>% group_by(clu) %>% summarize(genes=paste(gene_name, collapse = ","))
   class(clu_df) <- "data.frame"
   clu_df

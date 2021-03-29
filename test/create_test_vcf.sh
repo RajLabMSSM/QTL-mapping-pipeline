@@ -7,18 +7,20 @@ ml tabix
 
 # use regions.bed as regions file
 
-test_vcf1=/sc/hydra/projects/ad-omics/data/references/QTL-mapping-pipeline-references/CGND_311JG_GRM_WGS_2019-06-19_chr1.recalibrated_variants.vcf.gz
-test_vcf2=/sc/hydra/projects/ad-omics/data/references/QTL-mapping-pipeline-references/CGND_311JG_GRM_WGS_2019-06-19_chr2.recalibrated_variants.vcf.gz
+test_vcf1=/sc/arion/projects/H_ad-omics/data/references/QTL-mapping-pipeline-references/CGND_311JG_GRM_WGS_2019-06-19_chr1.recalibrated_variants.vcf.gz
+test_vcf2=/sc/arion/projects/H_ad-omics/data/references/QTL-mapping-pipeline-references/CGND_311JG_GRM_WGS_2019-06-19_chr2.recalibrated_variants.vcf.gz
 
+test_vcf1=/sc/arion/projects/als-omics/WGS_QC/NYGC_Freeze02_European_Feb2020/WGS_QC_Pipeline/NYGC_Freeze02_European_Feb2020/output/chrAll_QCFinished_MAF0.01.anno.vcf.gz
+test_vcf2=$test_vcf1
 
-bcftools view -R regions.bed -f PASS --min-af 0.05 --exclude-types indels --exclude-types indels $test_vcf1 | bgzip -c > test_chr1.vcf.gz
+bcftools view -R regions.bed --min-af 0.05 --exclude-types indels --exclude-types indels $test_vcf1 | bcftools sort -Oz -o test_chr1.vcf.gz
 
 tabix test_chr1.vcf.gz
 
-bcftools view -R regions.bed -f PASS --min-af 0.05 --exclude-types indels --exclude-types indels $test_vcf2 | bgzip -c > test_chr2.vcf.gz
+bcftools view -R regions.bed --min-af 0.05 --exclude-types indels --exclude-types indels $test_vcf2 | bcftools sort -Oz -o test_chr2.vcf.gz
 
 tabix test_chr2.vcf.gz
 
-bcftools concat -n -o test_all_chr.vcf.gz test_chr1.vcf.gz test_chr2.vcf.gz
+bcftools concat -n test_chr1.vcf.gz test_chr2.vcf.gz | bcftools sort -Oz -o test_all_chr.vcf.gz
 
-tabix test_all_chr.vcf.gz 
+tabix test_all_chr.vcf.gz

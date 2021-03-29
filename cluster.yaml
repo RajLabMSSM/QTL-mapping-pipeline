@@ -1,56 +1,53 @@
 __default__:
-  #partition: chimera
   queue: express
   cores: 1
-  mem: 3750
-  time: '120'
+  mem: 8000
+  time: '12:00'
   name: $(basename $(pwd)):{rule}:{wildcards}
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
+  gpuString: ""
+createGCTFiles:
+    mem: 32000
 QTLtools_nominal:
     cores: 1
-    mem: 3750
-    time: '100'
 QTLtools_permutation:
     cores: 1
-    mem: 3750
-    time: '100'
 mergeNominalResult:
     cores: 12
     mem: 3000
-    time: '120'
 runPEER:
     cores: 1
-    mem: 3750
-    time: '240'
 summariseQTLtoolsResults:
     cores: 16
     mem: 3750
-    time: '360'
 prepareSplicing:
     cores: 4
     mem: 3750
-    time: 120
 tensorQTL_cis_independent:
    queue: gpu
-   cores: 6
-   mem: 3000
-   time: 300
+   cores: 4
+   mem: 16000
+   time: 144:00
+   gpuString: -R rusage[ngpus_excl_p=2] -R a100
 tensorQTL_cis:
    queue: gpu
-   cores: 6
-   mem: 3000
-   time: 300
-   #gpuString: |
-   #    #  -R "gpu rusage[ngpus_excl_p=1]" -R v100
+   cores: 4
+   mem: 16000
+   time: 144:00
+   gpuString: -R rusage[ngpus_excl_p=2] -R a100
 tensorQTL_cis_nominal:
-    queue: express
-    cores: 6
-    mem: 3000
-    time: 300
+    queue: gpu
+    cores: 4
+    mem: 16000
+    time: 144:00
+    gpuString: -R rusage[ngpus_excl_p=2] -R a100
 prepareExpression:
   cores: 4
-  mem: 3000
+  mem: 8000
+mergeNominalResult:
+  cores: 1
+  mem: 48000  
 # extractJunctions:
 #   time: '120:00'
 #   cores: 1
