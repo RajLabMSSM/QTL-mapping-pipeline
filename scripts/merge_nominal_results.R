@@ -44,7 +44,7 @@ system(paste0("rm ", vcf_df ))
 
 
 # find all parquet files for a QTL analysis
-all_parquet <- paste0(out_folder, prefix, ".cis_qtl_pairs.chr",1:22,".parquet")
+all_parquet <- paste0(out_folder, prefix, ".cis_qtl_pairs.chr",gsub("chr","",unique(snp_df$chr)),".parquet")
 
 for( file in all_parquet){
     if( !file.exists(file) ){
@@ -60,7 +60,7 @@ stopifnot( all(file.exists(all_parquet) ))
 all_res <- 
     walk( all_parquet, ~{
         message( " * reading in ", .x )
-        df <- read_parquet(.x)
+        df <- read_parquet(.x,  compression = "uncompressed")
         df <- dplyr::left_join(df, snp_df, by = "variant_id")
         # sort by position
         df <- df[order(df$pos), ]
@@ -83,7 +83,7 @@ all_res <-
 # use cat to concatenate together 
 message(" * concatenating to ", outFile)
 
-all_temp <- paste0(outFile, "_chr", 1:22, collapse = " ")
+all_temp <- paste0(outFile, "_chr", gsub("chr","",unique(snp_df$chr)), collapse = " ")
 cmd <- paste( "cat", all_temp, " > ", outFile )
 message( cmd )  
 system(cmd)
@@ -92,9 +92,15 @@ cmd <- paste( "rm ", all_temp)
 system(cmd)
 #write_tsv(all_res, path = outFile)
 
+# sorting
+message( "* sorting " )
+sort_cmd <- paste0("cat ", outFile, " | (sed -u 1q; sort -k10,10 -k11,11n) > ", outFile, ".sorted")
+message( " * ", sort_cmd)
+system(sort_cmd)
+
 # bgzip
 message( "* bgzipping " )
-bgzip_cmd <- paste0(" ml bcftools; bgzip -f ", outFile)
+bgzip_cmd <- paste0(" ml bcftools; bgzip -f -c ", outFile, ".sorted > ", outFile, ".gz")
 message( " * ", bgzip_cmd)
 system(bgzip_cmd)
 
@@ -103,4 +109,3 @@ message(" * tabixing " )
 tabix_cmd <- paste0(" ml bcftools; tabix -S 1 -s 10 -b 11 -e 11 ", outFile, ".gz" )
 message(" * ", tabix_cmd)
 system(tabix_cmd)
-

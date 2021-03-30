@@ -1,17 +1,21 @@
 # experiment-specific parameters
-dataCode: test
+dataCode: testResults
+
 #sampleKey: "test/test_sample_key.txt" # has to be "sample_id", "participant_id"
 # samples with available junctions
-sampleKey: "test/test_sample_key.txt"
-genotypePCs: "test/test_ancestry_covariates.txt" # rows are PCs, columns are samples
-covariateFile: "test/test_ancestry_covariates.txt" # as above
+sampleKey: "test/Test_sample_key.txt" # In this example: 50 samples, 50 individuals (repeated donors are not supported and the pipeline will crash)
+genotypePCs: "test/Test_genotype_PCs.txt" # rows are PCs, columns are samples. In the example we have 235 samples and 5 PCs
+covariateFile: "test/Test_wgs_covariates.txt" # as above, 235 samples and 3 covariates (all must be numeric)
+
 PEER_values: 5
+
 # where the junctions are kept
-junctionFileList: "test/test_junction_file_list.txt"
+junctionFileList: "test/Test_junction_files_list.txt"
 
 # these shouldn't change
-countMatrixRData: "/sc/arion/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData"
-VCF: "test/test_all_chr.vcf.gz"
-GTF: "/sc/arion/projects/ad-omics/data/references//hg38_reference/GENCODE/gencode.v30.annotation.gtf" # cannot be gzipped
+countMatrixRData: "/sc/arion/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData" # 58929 genes, 1252 samples
+VCF: "test/test_all_chr.vcf.gz" # 425 individuals, 17988 variants (generated using create_test_vcf.sh
+GTF: "test/test.gtf" # cannot be gzipped
 
-mode: "sQTL"
+mode: "eQTL"
+

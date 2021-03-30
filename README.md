@@ -30,12 +30,17 @@ Therefore you must manually install this from where we keep it in the communal s
 (This assumes you have access to ad-omics), otherwise clone the repo from https://github.com/broadinstitute/tensorqtl
 
 ```
+conda create -n tensorqtl python=3.7 pip snakemake
 conda activate tensorqtl
-cd /sc/hydra/projects/ad-omics/data/software/tensorqtl
-pip install -r install/requirements.txt .
-pip install --upgrade pandas
-#pip install --upgrade snakemake
+ml R/3.6.2 # or the version you are using
+pip3 install --upgrade tensorqtl
 
+#cd /sc/arion/projects/H_ad-omics/data/software/tensorqtl
+#pip install -r install/requirements.txt .
+#pip install --upgrade pandas
+#pip install --upgrade cython
+#pip install --upgrade rpy2
+#pip install --upgrade snakemake
 ```
 
 ## running on test data
@@ -49,9 +54,9 @@ sh create_test_gtf.sh
 sh create_test_vcf.sh
 
 cd ..
-snakemake --configfile test/config.yaml -pr --config mode=eQTL
+snakemake --configfile test/config.yaml -pr --config mode=eQTL --cores 4
+snakemake --configfile test/config.yaml -pr --config mode=sQTL --cores 4
 ```
-
 
 # Input Files
 
@@ -59,10 +64,9 @@ Examples of each input file are in `example/`. The master file is the `config.ya
 
 
 #### `dataCode:`  
-  The name of the experiment or dataset
+  The name of the experiment or dataset. This will be used as prefix name for the results folder created inside `results/`. 
   
 #### `sampleKey:` 
-
   The sample key file contains two columns, sample_id and participant_id. sample_id refers to the RNA-seq samples and must match the column names in your count matrix and the names of your junction files. participant_id refers to the donor ID in your VCF and must match. 
 
   See: example/Cerebellum_sample_key.txt
