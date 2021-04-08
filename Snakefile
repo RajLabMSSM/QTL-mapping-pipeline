@@ -6,23 +6,46 @@ import os
 
 nPerm = 10000 # number of permutations of the permutation pass
 
-#shell.prefix('export PS1="";source activate QTL-pipeline; ml qtltools/1.2; ml R/3.6.0;')
 R_VERSION = "R/4.0.3"
 shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
 
+# Interaction QTLs
 # interaction mode - set default to False
 if "interaction" not in config.keys():
     config["interaction"] = False
 interaction = bool(config["interaction"])
 
+# requires an interaction_file and an interaction_name in the config.yaml
+if( interaction is True ):
+    print(" * interaction mode selected")
+    if "interaction_name" not in config.keys():
+        sys.exit("config.yaml does not contain interaction_name value")
+if( interaction is True ):
+    if "interaction_file" not in config.keys():
+        sys.exit("config.yaml does not contain interaction_file value")
+    
+if(interaction is True):
+    interaction_name = config["interaction_name"]
+    interaction_file = config["interaction_file"]
+    interaction_string = " --interaction {interaction_file} --maf_threshold_interaction 0.05 "
+
+# Trans QTLs
+# set default to False
+if "trans" not in config.keys():
+    config["trans"] = False
+trans = bool(config["trans"])
+
+# Conditional eQTL
+# set default to False
+if "trans" not in config.keys():
+    config["conditional_qtls"] = False
+conditional_qtls = bool(config["conditional_qtls"])
+
+# Common config variables - all modes require these
 leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
 GTF = config["GTF"]
 GTFexons = GTF + ".exons.txt.gz" 
 
-# put into config
-conditional_qtls = False
-
-# common config variables - all modes require these
 mode = config["mode"]
 
 dataCode = config["dataCode"]
@@ -56,27 +79,12 @@ else:
     covariateFile = config["covariateFile"]
     PEER_values = config["PEER_values"]
 
-if( interaction is True ):
-    print(" * interaction mode selected")
-    if "interaction_name" not in config.keys():
-        sys.exit("config.yaml does not contain interaction_name value")
-
-# Interaction QTLs
-# requires an interaction_file and an interaction_name in the config.yaml
-if(interaction is True):
-    interaction_name = config["interaction_name"]
-    interaction_file = config["interaction_file"]
-    interaction_string = " --interaction {interaction_file}  --maf_threshold_interaction 0.05 "
-
 # MODE SELECTION - expression QTLs
 if(mode == "eQTL"):
-    #PEER_values = [30]
     group_by_values = ["gene"]
     PEER_values = config["PEER_values"]
     dataCode = dataCode + "_expression"
     qtl_window = int(1e6)
-    #if(interaction is True):
-    #    dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".expression.bed.gz"
@@ -84,20 +92,21 @@ if(mode == "eQTL"):
     final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
                      expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]
     if( conditional_qtls == True ):
-        final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
-    countMatrixRData = config["countMatrixRData"]
+        final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )      
+    if( interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_" + interaction_name + "_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) )
+    if( trans == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene" ) )
+    if( trans == True & interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_" + interaction_name + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene" ) )        
+countMatrixRData = config["countMatrixRData"]
 
 # MODE SELECTION - splicing QTLs
 if(mode == "sQTL"):
     group_by_values = ["cluster"] # should be either 'gene' or 'cluster'
-    # PEER values for sQTLs hard-coded at 20
-    #PEER_values = [20]
-    #PEER_values = [0,5,10,15,20]
     qtl_window = int(1e5) # splicing window is now 100kb either side of junction middle - maximum junction length is 100kb so will cover all
     PEER_values = config["PEER_values"]
     dataCode = dataCode + "_splicing"
-    #if(interaction is True):
-    #    dataCode = dataCode  + "_interaction_" + interaction_name
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     junctionFileList = config["junctionFileList"]
@@ -109,14 +118,19 @@ if(mode == "sQTL"):
     group_string = " --phenotype_groups " + group_file
     if( conditional_qtls == True ):
         final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
+    if( interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}_interaction_" + interaction_name + ".cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = group_by_values ) )
+    if( trans == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values ) )
+    if( trans == True & interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_" + interaction_name + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values ) )
 
 ## NEW MODES TO GO HERE - EDITING QTLs, PROTEIN QTLs etc.
-    
+
 print(" * QTL-mapping pipeline *")
 print(" Jack Humphrey 2019-2020 ")
 print(" * Data code is : %s " % dataCode)
 print(" * Mode selected is: %s" % mode)
-
 
 rule all:
     input:
@@ -369,6 +383,7 @@ rule VCFtoPLINK:
         "--vcf {input.vcf} "
         "--out {params.stem} "
 
+# cis eQTL mapping with permutations (i.e. top variant per phenotype group)
 rule tensorQTL_cis:
     input:
         genotypes = prefix + "_genotypes.fam",
@@ -384,27 +399,15 @@ rule tensorQTL_cis:
         group_string = group_string,
         script = "scripts/interaction_qvalue.R" 
     run:
-        if interaction is False:
-            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
-             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
-             --phenotype_groups {input.groups} \
-             --covariates {input.covariates} \
-             --window {qtl_window} \
-             --load_split \
-             --mode cis ")
-        if interaction is True:
-            # the same 
-            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
-             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
-             --phenotype_groups {input.groups} \
-             --covariates {input.covariates} \
-             --window {qtl_window} \
-             --load_split \
-             --mode cis \
-             --interaction {interaction_file}  --maf_threshold_interaction 0.05 ; \
-             #Rscript {params.script} {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl_top_assoc.txt.gz  {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group}.cis_qtl.txt.gz"
-        )
+        shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+            --phenotype_groups {input.groups} \
+            --covariates {input.covariates} \
+            --window {qtl_window} \
+            --load_split \
+            --mode cis ")
 
+# cis-QTL mapping: summary statistics for all variant-phenotype pairs
 rule tensorQTL_cis_nominal:
     input:
         #perm_res = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.cis_qtl.txt.gz",
@@ -416,38 +419,43 @@ rule tensorQTL_cis_nominal:
     params:
         group = "{group_by}",
         stem = prefix + "_genotypes",
-        num_peer = "{PEER_N}",
+        num_peer = "{PEER_N}"
     run:
-        if interaction is False:
-            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
-             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
-             --covariates {input.covariates} \
-             --window {qtl_window} \
-             --load_split \
-             --mode cis_nominal ")
-        if interaction is True:
-            shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
-             {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
-             --covariates {input.covariates} \
-             --window {qtl_window} \
-             --load_split \
-             --mode cis_nominal \
-             --interaction {interaction_file}  --maf_threshold_interaction 0.05")
-             
-rule mergeNominalResult:
-    input:
-        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
-    output:
-        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz",
-        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz.tbi", 
-    params:
-        prefix = "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}",
-        script = "scripts/merge_nominal_results.R"
-    
-    shell:
-        " ml {R_VERSION}; ml snappy;"
-        " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "    
+        shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+            --covariates {input.covariates} \
+            --window {qtl_window} \
+            --load_split \
+            --mode cis_nominal ")
 
+# cis-QTL mapping: interactions
+# Instead of mapping the standard linear model (p ~ g), this mode includes an interaction term (p ~ g + i + gi) and returns full summary statistics for the model. 
+# The interaction term is a tab-delimited text file or pd.Series mapping sample ID to interaction value. 
+# With the run_eigenmt=True option, eigenMT-adjusted p-values are computed.
+rule tensorQTL_cis_interaction:
+    input:
+        genotypes = prefix + "_genotypes.fam",
+        phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
+    output:
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_interaction_{interaction_name}_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
+    params:
+        group = "{group_by}",
+        stem = prefix + "_genotypes",
+        num_peer = "{PEER_N}"
+    run:
+        shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; \
+            python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            {outFolder}peer{params.num_peer}/{dataCode}_interaction_{interaction_name}_peer{params.num_peer}_{params.group} \
+            --covariates {input.covariates} \
+            --window {qtl_window} \
+            --mode cis_nominal \
+            --interaction {interaction_file} \
+            --maf_threshold_interaction 0.05")
+
+# cis-QTL mapping: conditionally independent QTLs
+# This mode maps conditionally independent cis-QTLs using the stepwise regression procedure described in GTEx Consortium, 2017. 
+# The output from the permutation step (see map_cis above) is required. 
 rule tensorQTL_cis_independent:
     input:
         cis_result =  outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz",
@@ -468,8 +476,80 @@ rule tensorQTL_cis_independent:
              --covariates {input.covariates} \
             --cis_output {input.cis_result} \
             --window {qtl_window} \
-            --load_split \
             --mode cis_independent")
+
+# trans-eQTL mapping
+# This mode computes nominal associations between all phenotypes and genotypes. 
+# tensorQTL generates sparse output by default (associations with p-value < 1e-5)
+# The output is in parquet format, with four columns: phenotype_id, variant_id, pval, maf
+rule tensorQTL_trans:
+    input:
+        genotypes = prefix + "_genotypes.fam",
+        phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz"
+    params:
+        stem = prefix + "_genotypes",
+        num_peer = "{PEER_N}",
+        group = "{group_by}"
+    run:
+        shell( "conda deactivate; conda activate tensorqtl; ml purge; ml {R_VERSION} cuda/11.1; \
+            python3 -m tensorqtl {params.stem} \
+            {input.phenotypes} \
+            {outFolder}peer{params.num_peer}/{dataCode}_peer{params.num_peer}_{params.group} \
+            --covariates {input.covariates} \
+            --output_text \
+            --pval_threshold 1e-4 \
+            --mode trans")
+
+# trans-eQTL mapping with interaction term
+rule tensorQTL_insteraction_trans:
+    input:
+        genotypes = prefix + "_genotypes.fam",
+        phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
+        covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_name}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz"
+    params:
+        stem = prefix + "_genotypes",
+        num_peer = "{PEER_N}",
+        group = "{group_by}"
+    run:
+        shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; \
+            python3 -m tensorqtl {params.stem} {input.phenotypes} \
+            {outFolder}peer{params.num_peer}/{dataCode}_interaction_{interaction_name}_peer{params.num_peer}_{params.group} \
+            --covariates {input.covariates} \
+            --mode trans \
+            --output_text \
+            --pval_threshold 1e-4 \
+            --interaction {interaction_file}")
+
+rule mergeNominalResult:
+    input:
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz",
+        outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz.tbi", 
+    params:
+        prefix = "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}",
+        script = "scripts/merge_nominal_results.R"
+    shell:
+        " ml {R_VERSION}; ml snappy;"
+        " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} " 
+
+rule mergeNominalResult_interaction:
+    input:
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_interaction_{interaction_name}_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
+    output:
+        outFolder + "peer{PEER_N}/" + dataCode +"_interaction_{interaction_name}_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz",
+        outFolder + "peer{PEER_N}/" + dataCode +"_interaction_{interaction_name}_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz.tbi", 
+    params:
+        prefix = "peer{PEER_N}/" + dataCode +"_interaction_{interaction_name}_peer{PEER_N}_{group_by}",
+        script = "scripts/merge_nominal_results.R"
+    shell:
+        " ml {R_VERSION}; ml snappy;"
+        " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "  
 
 ## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
 # THIS SHOULD BE RUN BEFORE QTL MAPPING TO CHECK FOR SAMPLE SWAPS
@@ -506,5 +586,3 @@ rule summariseResults:
         "for i in {input.files};"
         "do cat $i | sort -k9nr,10nr | head -1 | awk -v i=$i \'{{print i, $0}}\'  ;"
         "done > {output};"
-
-

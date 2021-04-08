@@ -56,12 +56,13 @@ sh create_test_vcf.sh
 cd ..
 snakemake --configfile test/config.yaml -pr --config mode=eQTL --cores 4
 snakemake --configfile test/config.yaml -pr --config mode=sQTL --cores 4
+# Runs with all modes (interaction + trans + conditional)
+snakemake --configfile test/config.yaml -pr --config mode=eQTL interaction=True trans=True conditional_qtls=True --cores 4
 ```
 
 # Input Files
 
 Examples of each input file are in `example/`. The master file is the `config.yaml`, which sets the paths to all other input files. 
-
 
 #### `dataCode:`  
   The name of the experiment or dataset. This will be used as prefix name for the results folder created inside `results/`. 
@@ -104,6 +105,21 @@ Examples of each input file are in `example/`. The master file is the `config.ya
   Path to count matrix, an RData file created by collating gene expression values from RSEM. I use the output of [collate_samples](https://github.com/RajLabMSSM/RNA-pipelines/tree/master/collate_samples).
   This matrix can contain more samples than you plan to analyse as the matrix will be filtered.
 
+#### `interaction:` 
+  (optional) Flag for interaction-eQTL analysis. If set `True` (default is `False`), other the parameters `interaction_name` and `interaction_file` must be specified. See more below.
+
+#### `interaction_name:`
+  A name identifing the interaction. This string will be used to name the results files, allowing multiple interaction runs using the same data (just need to update this parameter).
+
+#### `interaction_file:`
+  A text file with 2 columns. The first columns has the participant_id (matching sampleKey file) and the second has the interaction values (must be numeric!).
+
+#### `trans:`
+  (optional) Flag for trans-eQTL analysis. If set `True`, in addition to cis results, a file with nominal associations between all phenotypes and genotypes will be generated (default is `False`). The output is in txt.gz format, with four columns: phenotype_id, variant_id, pval, maf. As default only associations with p-value < 1e-4 will be reported (change in the Snakefile if necessary).
+
+#### `conditional_qtls:`
+  (optional) Flag for conditional-eQTL analysis. This mode maps conditionally independent cis-QTLs using the stepwise regression procedure. It will run on top of the cis-eQTL mapping results.
+
 # Selecting modes
 
 The QTL-mapping-pipeline currently supports 3 modes of execution:
@@ -128,7 +144,6 @@ The _mbv_ mode requires a different config.yaml, an example of which is in `exam
 * VCF: 
   The path to the VCF file.
   
-  
  # Parallel execution and chunking
  
  The pipeline has been designed to be run in parallel on the MSSM HPC cluster. The script that connects the snakemake code to the LSF job scheduler is found in `snakejob`.  If you do not have access to the `als-omics` account then you will have to modify this. 
@@ -145,7 +160,6 @@ Example:
 ./snakejob -s Snakefile -c config.yaml -m sQTL -n
 ```
 
-
 The resources each step is allocated is set in `cluster.yaml`. 
 
 # UNLIMITED POWER - run multiple QTL analyses simultaneously
@@ -160,9 +174,5 @@ sh run_all_QTLs_parallel.sh -c config_file_list.txt -s Snakefile
  
 # To be documented:
 
-* Interaction QTLs
-
  # Features coming soon
- 
- * trans-QTLs using tensorQTL
   
