@@ -7,63 +7,71 @@ __default__:
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
   gpuString: ""
+
 createGCTFiles:
     mem: 32000
-QTLtools_nominal:
-    cores: 1
-QTLtools_permutation:
-    cores: 1
-mergeNominalResult:
-    cores: 12
-    mem: 3000
-runPEER:
-    cores: 1
-summariseQTLtoolsResults:
-    cores: 16
-    mem: 3750
+
+prepareExpression:
+  cores: 4
+  mem: 8000
+
 prepareSplicing:
     cores: 4
     mem: 3750
-tensorQTL_cis_independent:
-   queue: gpu
-   cores: 4
-   mem: 16000
-   time: 144:00
-   gpuString: -R rusage[ngpus_excl_p=2] -R a100
+
+runPEER:
+    queue: premium
+    cores: 1
+    time: 144:00
+
 tensorQTL_cis:
    queue: gpu
    cores: 4
    mem: 16000
    time: 144:00
-   gpuString: -R rusage[ngpus_excl_p=2] -R a100
+   gpuString: -R rusage[ngpus_excl_p=4] -R a100
+
 tensorQTL_cis_nominal:
     queue: gpu
     cores: 4
     mem: 16000
     time: 144:00
-    gpuString: -R rusage[ngpus_excl_p=2] -R a100
-prepareExpression:
-  cores: 4
-  mem: 8000
+    gpuString: -R rusage[ngpus_excl_p=4] -R a100
+
+tensorQTL_trans:
+    queue: gpu
+    cores: 4
+    mem: 16000
+    time: 144:00
+    gpuString: -R rusage[ngpus_excl_p=4] -R a100
+
+tensorQTL_cis_interaction:
+    queue: gpu
+    cores: 4
+    mem: 16000
+    time: 144:00
+    gpuString: -R rusage[ngpus_excl_p=4] -R a100
+
+tensorQTL_insteraction_trans:
+   queue: gpu
+   cores: 4
+   mem: 16000
+   time: 144:00
+   gpuString: -R rusage[ngpus_excl_p=4] -R a100
+
+tensorQTL_cis_independent:
+   queue: gpu
+   cores: 4
+   mem: 16000
+   time: 144:00
+   gpuString: -R rusage[ngpus_excl_p=4] -R a100
+
 mergeNominalResult:
   cores: 1
-  mem: 48000  
-# extractJunctions:
-#   time: '120:00'
-#   cores: 1
-#   mem: 3750
-# clusterJunctions:
-#   time: '90:00'
-#   mem: 3750
-#   cores: 1
-#leafcutterDS:
-#   time: '120:00'
-#   mem: 3750
-#   cores: 4
-# createRefs:
-#   time: '24:00'
-# prepareShiny:
-#   mem: 3750
-#   cores: 1
-#   time: '24:00'
+  mem: 48000
+
+mergeNominalResult_interaction:
+  cores: 1
+  mem: 48000
+
 ## copied from Shea - this shows how to set rule-specific cluster parameters

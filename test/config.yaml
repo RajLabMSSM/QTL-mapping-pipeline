@@ -12,6 +12,17 @@ PEER_values: 5
 # where the junctions are kept
 junctionFileList: "test/Test_junction_files_list.txt"
 
+# interaction files (this is example is just 5 categories randomly given to each sample). 
+interaction: False
+interaction_name: "interactTerm"
+interaction_file: "test/Test_interaction.txt" # 2 columns (participant_id, interaction values - must be numeric!)
+
+# trans-eQTL flag (can be combined with interaction). Standard cis-eQTL will be generated as well.
+trans: False
+
+# conditional-eQTL flag (can be combined with interaction). Standard cis-eQTL will be generated as well.
+conditional_qtls: False
+
 # these shouldn't change
 countMatrixRData: "/sc/arion/projects/als-omics/NYGC_ALS/data/oct_2019_gene_matrix.RData" # 58929 genes, 1252 samples
 VCF: "test/test_all_chr.vcf.gz" # 425 individuals, 17988 variants (generated using create_test_vcf.sh
