@@ -7,16 +7,20 @@ sampleKey: "test/Test_sample_key.txt" # In this example: 50 samples, 50 individu
 genotypePCs: "test/Test_genotype_PCs.txt" # rows are PCs, columns are samples. In the example we have 235 samples and 5 PCs
 covariateFile: "test/Test_wgs_covariates.txt" # as above, 235 samples and 3 covariates (all must be numeric)
 
-PEER_values: 5
+PEER_values:
+    - '5'
 
 # where the junctions are kept
 junctionFileList: "test/Test_junction_files_list.txt"
 
 # interaction files (this is example is just 5 categories randomly given to each sample). 
 interaction: False
-interaction_name: "interactTerm"
-interaction_file: "test/Test_interaction.txt" # 2 columns (participant_id, interaction values - must be numeric!)
-
+interaction_name:
+    - 'interactTerm1'
+    - 'interactTerm2'
+interaction_file: # 2 columns (participant_id, interaction values - must be numeric!). If list, must order match with interaction_name
+    - 'test/Test_interaction.txt'
+    - 'test/Test_interaction2.txt'    
 # trans-eQTL flag (can be combined with interaction). Standard cis-eQTL will be generated as well.
 trans: False
 
