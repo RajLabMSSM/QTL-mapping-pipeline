@@ -29,42 +29,42 @@ tensorQTL_cis:
    cores: 4
    mem: 16000
    time: 144:00
-   gpuString: -R rusage[ngpus_excl_p=4] -R a100
+   gpuString: -R rusage[ngpus_excl_p=1] -R a100
 
 tensorQTL_cis_nominal:
     queue: gpu
     cores: 4
     mem: 16000
     time: 144:00
-    gpuString: -R rusage[ngpus_excl_p=4] -R a100
+    gpuString: -R rusage[ngpus_excl_p=1] -R a100
 
 tensorQTL_trans:
     queue: gpu
     cores: 4
     mem: 16000
     time: 144:00
-    gpuString: -R rusage[ngpus_excl_p=4] -R a100
+    gpuString: -R rusage[ngpus_excl_p=1] -R a100
 
 tensorQTL_cis_interaction:
     queue: gpu
     cores: 4
     mem: 16000
     time: 144:00
-    gpuString: -R rusage[ngpus_excl_p=4] -R a100
+    gpuString: -R rusage[ngpus_excl_p=1] -R a100
 
 tensorQTL_insteraction_trans:
    queue: gpu
    cores: 4
    mem: 16000
    time: 144:00
-   gpuString: -R rusage[ngpus_excl_p=4] -R a100
+   gpuString: -R rusage[ngpus_excl_p=1] -R a100
 
 tensorQTL_cis_independent:
    queue: gpu
    cores: 4
    mem: 16000
    time: 144:00
-   gpuString: -R rusage[ngpus_excl_p=4] -R a100
+   gpuString: -R rusage[ngpus_excl_p=1] -R a100
 
 mergeNominalResult:
   cores: 1

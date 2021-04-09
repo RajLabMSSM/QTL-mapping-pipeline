@@ -4,6 +4,14 @@ import glob
 import pandas as pd
 import os
 
+mode = config["mode"]
+dataCode = config["dataCode"]
+
+print(" * QTL-mapping pipeline *")
+print(" Jack Humphrey 2019-2020 ")
+print(" * Data code is : %s " % dataCode)
+print(" * Mode selected is: %s" % mode)
+
 nPerm = 10000 # number of permutations of the permutation pass
 
 R_VERSION = "R/4.0.3"
@@ -27,7 +35,8 @@ if( interaction is True ):
 if(interaction is True):
     interaction_name = config["interaction_name"]
     interaction_file = config["interaction_file"]
-    interaction_string = " --interaction {interaction_file} --maf_threshold_interaction 0.05 "
+    interaction_file_list = [str(i) for i in interaction_file]
+    interaction_dict = dict(zip(interaction_name, interaction_file_list))
 
 # Trans QTLs
 # set default to False
@@ -37,18 +46,21 @@ trans = bool(config["trans"])
 
 # Conditional eQTL
 # set default to False
-if "trans" not in config.keys():
+if "conditional_qtls" not in config.keys():
     config["conditional_qtls"] = False
 conditional_qtls = bool(config["conditional_qtls"])
+
+if( interaction is True ):
+    print(" * trans-eQTL mode selected")
+
+if( conditional_qtls is True ):
+    print(" * conditinal-eQTL mode selected")
 
 # Common config variables - all modes require these
 leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
 GTF = config["GTF"]
 GTFexons = GTF + ".exons.txt.gz" 
 
-mode = config["mode"]
-
-dataCode = config["dataCode"]
 VCF = config["VCF"]
 VCFstem = VCF.split(".vcf.gz")[0]
 sample_key = ""
@@ -61,7 +73,6 @@ phenotype_matrix = ""
 bamFolder = ""
 bamSuffix = ""
 BAM_SAMPLES = []
-interaction_string = ""
 group_string = ""
 
 CHROM = subprocess.run(["tabix","-l", VCF], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
@@ -94,11 +105,11 @@ if(mode == "eQTL"):
     if( conditional_qtls == True ):
         final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )      
     if( interaction == True ):
-        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_" + interaction_name + "_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) )
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene", interaction_id = interaction_name ) )
     if( trans == True ):
         final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene" ) )
     if( trans == True & interaction == True ):
-        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_" + interaction_name + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene" ) )        
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene", interaction_id = interaction_name ) )        
 countMatrixRData = config["countMatrixRData"]
 
 # MODE SELECTION - splicing QTLs
@@ -119,18 +130,13 @@ if(mode == "sQTL"):
     if( conditional_qtls == True ):
         final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
     if( interaction == True ):
-        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}_interaction_" + interaction_name + ".cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = group_by_values ) )
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}_interaction_{interaction_id}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = group_by_values, interaction_id = interaction_name ) )
     if( trans == True ):
         final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values ) )
     if( trans == True & interaction == True ):
-        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_" + interaction_name + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values ) )
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values, interaction_id = interaction_name ) )
 
 ## NEW MODES TO GO HERE - EDITING QTLs, PROTEIN QTLs etc.
-
-print(" * QTL-mapping pipeline *")
-print(" Jack Humphrey 2019-2020 ")
-print(" * Data code is : %s " % dataCode)
-print(" * Mode selected is: %s" % mode)
 
 rule all:
     input:
@@ -203,7 +209,7 @@ rule prepareSplicing:
         #counts_numers = prefix + "_perind_numers.counts.gz",
         #clusters_pooled = prefix + "_pooled.gz",
         #clusters_refined = prefix + "_refined.gz",
-#       clusters_to_genes = prefix + ".leafcutter.clusters_to_genes.txt",
+       #clusters_to_genes = prefix + ".leafcutter.clusters_to_genes.txt",
         phenotype_groups = prefix + ".leafcutter.phenotype_groups.txt",
         leafcutter_bed = prefix + ".leafcutter.bed.gz",
         leafcutter_bed_index = prefix + ".leafcutter.bed.gz.tbi",
@@ -304,7 +310,6 @@ rule combineCovariates:
         covariate_df = covariate_df[ ["ID"] + list(phenotype_df.columns[4:]) ]
         # write out
         covariate_df.to_csv(output.cov_df, header = True, index = False, sep = "\t")
-
 
 ## TENSORQTL -----------------------------------------------------------------------
 
@@ -438,20 +443,21 @@ rule tensorQTL_cis_interaction:
         phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
         covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
     output:
-        expand( outFolder + "peer{PEER_N}/" + dataCode +"_interaction_{interaction_name}_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM,  allow_missing=True )
+        expand( outFolder + "peer{PEER_N}/" + dataCode +"_interaction_{interaction_id}_peer{PEER_N}_{group_by}.cis_qtl_pairs.{CHROM}.parquet", CHROM = CHROM, allow_missing=True )
     params:
         group = "{group_by}",
         stem = prefix + "_genotypes",
-        num_peer = "{PEER_N}"
-    run:
-        shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; \
+        num_peer = "{PEER_N}",
+        interaction = lambda wcs: interaction_dict[wcs.interaction_id]
+    shell:
+        "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; \
             python3 -m tensorqtl {params.stem} {input.phenotypes} \
-            {outFolder}peer{params.num_peer}/{dataCode}_interaction_{interaction_name}_peer{params.num_peer}_{params.group} \
+            {outFolder}peer{params.num_peer}/{dataCode}_interaction_{wildcards.interaction_id}_peer{params.num_peer}_{params.group} \
             --covariates {input.covariates} \
             --window {qtl_window} \
             --mode cis_nominal \
-            --interaction {interaction_file} \
-            --maf_threshold_interaction 0.05")
+            --interaction {params.interaction} \
+            --maf_threshold_interaction 0.05"
 
 # cis-QTL mapping: conditionally independent QTLs
 # This mode maps conditionally independent cis-QTLs using the stepwise regression procedure described in GTEx Consortium, 2017. 
@@ -510,20 +516,21 @@ rule tensorQTL_insteraction_trans:
         phenotypes = prefix + ".phenotype.tensorQTL.{group_by}.bed.gz",
         covariates = outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}.{group_by}.combined_covariates.txt"
     output:
-        outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_name}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz"
+        outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz"
     params:
         stem = prefix + "_genotypes",
         num_peer = "{PEER_N}",
-        group = "{group_by}"
+        group = "{group_by}",
+        interaction = lambda wcs: interaction_dict[wcs.interaction_id]
     run:
         shell( "conda deactivate; conda activate tensorqtl; module purge; ml {R_VERSION}; ml cuda/11.1; \
             python3 -m tensorqtl {params.stem} {input.phenotypes} \
-            {outFolder}peer{params.num_peer}/{dataCode}_interaction_{interaction_name}_peer{params.num_peer}_{params.group} \
+            {outFolder}peer{params.num_peer}/{dataCode}_interaction_{wildcards.interaction_id}_peer{params.num_peer}_{params.group} \
             --covariates {input.covariates} \
             --mode trans \
             --output_text \
             --pval_threshold 1e-4 \
-            --interaction {interaction_file}")
+            --interaction {params.interaction}")
 
 rule mergeNominalResult:
     input:

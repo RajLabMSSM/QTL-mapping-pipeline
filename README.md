@@ -109,10 +109,10 @@ Examples of each input file are in `example/`. The master file is the `config.ya
   (optional) Flag for interaction-eQTL analysis. If set `True` (default is `False`), other the parameters `interaction_name` and `interaction_file` must be specified. See more below.
 
 #### `interaction_name:`
-  A name identifing the interaction. This string will be used to name the results files, allowing multiple interaction runs using the same data (just need to update this parameter).
+  A name identifing the interaction. This string will be used to name the results files, allowing multiple interaction runs using the same data (just need to update this parameter). You can also, specify a list with multiple interaction files to run in parallel, just make sure to match the `interaction_name` with `interaction_file`. See `test/config.yaml` for an example.
 
 #### `interaction_file:`
-  A text file with 2 columns. The first columns has the participant_id (matching sampleKey file) and the second has the interaction values (must be numeric!).
+  A text file with 2 columns. The first column has the participant_id (matching sampleKey file) and the second has the interaction values (must be numeric!).
 
 #### `trans:`
   (optional) Flag for trans-eQTL analysis. If set `True`, in addition to cis results, a file with nominal associations between all phenotypes and genotypes will be generated (default is `False`). The output is in txt.gz format, with four columns: phenotype_id, variant_id, pval, maf. As default only associations with p-value < 1e-4 will be reported (change in the Snakefile if necessary).
