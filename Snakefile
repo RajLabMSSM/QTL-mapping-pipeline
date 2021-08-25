@@ -75,7 +75,8 @@ bamSuffix = ""
 BAM_SAMPLES = []
 group_string = ""
 
-CHROM = subprocess.run(["tabix","-l", VCF], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
+CHROM = [i for i in range(1,23)]
+#CHROM = subprocess.run(["ml tabix; tabix","-l", VCF], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
 
 ## MODE SELECTION - MATCH BAMS TO VARIANTS
 if(mode == "mbv"):
@@ -259,7 +260,7 @@ rule prepareExpression:
     params:
         script = "scripts/eqtl_prepare_expression.py"
     shell:
-        "module load python/3.7.3;"
+        #"module load python/3.7.3;"
         " python {params.script} {input.tpm_gct} {input.counts_gct} {input.gtf} "
         " {input.sample_key} {input.vcf_chr_list} {prefix} "
         " --tpm_threshold 0.1 "

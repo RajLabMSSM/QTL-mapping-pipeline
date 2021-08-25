@@ -3,7 +3,7 @@
 
 # this will allow me to run all analyses in parallel
 
-script=snakejob_HPC
+script=~/bin/snakejob_HPC
 # use bash getopt to use short flags
 config='config.yaml'
 snakefile='Snakefile'

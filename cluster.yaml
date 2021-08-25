@@ -7,7 +7,7 @@ __default__:
   output: logs/{rule}:{wildcards}.stdout
   error: logs/{rule}:{wildcards}.stderr
   gpuString: ""
-
+  himem: ""
 createGCTFiles:
     mem: 32000
 
