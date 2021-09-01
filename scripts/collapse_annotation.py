@@ -73,6 +73,8 @@ class Annotation:
                
                 elif annot_type=='transcript':
                     transcript_id = attributes['transcript_id']
+                    #print(transcript_id)
+                    #print(attributes)
                     t = Transcript(attributes.pop('transcript_id'), attributes.pop('transcript_name'), attributes.pop('transcript_type'), g, start_pos, end_pos)
                     t.attributes = attributes
                     g.transcripts.append(t)

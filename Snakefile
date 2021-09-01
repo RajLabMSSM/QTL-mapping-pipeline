@@ -56,6 +56,12 @@ if( interaction is True ):
 if( conditional_qtls is True ):
     print(" * conditinal-eQTL mode selected")
 
+## Nominal mapping is the slow step - turn off when optimising numbers of PEER factors
+if "no_nominal" not in config.keys():
+    config["no_nominal"] = False
+no_nominal = bool(config["no_nominal"])
+
+
 # Common config variables - all modes require these
 leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
 GTF = config["GTF"]
@@ -101,8 +107,9 @@ if(mode == "eQTL"):
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".expression.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
-    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) ]
+    if( no_nominal == False ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) )
     if( conditional_qtls == True ):
         final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )      
     if( interaction == True ):
@@ -124,8 +131,9 @@ if(mode == "sQTL"):
     junctionFileList = config["junctionFileList"]
     phenotype_matrix = prefix + ".leafcutter.bed.gz"
     phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
-    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values), \
-                     expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) ]    
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) ]
+    if( no_nominal == False ):
+        final_output.append(expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) )
     group_file = prefix + ".group.tensorQTL.{group_by}.bed.gz"
     group_string = " --phenotype_groups " + group_file
     if( conditional_qtls == True ):
