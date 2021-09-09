@@ -120,6 +120,9 @@ Examples of each input file are in `example/`. The master file is the `config.ya
 #### `conditional_qtls:`
   (optional) Flag for conditional-eQTL analysis. This mode maps conditionally independent cis-QTLs using the stepwise regression procedure. It will run on top of the cis-eQTL mapping results.
 
+#### `no_nominal:`
+    (optional) Flag to turn off cis-nominal mapping. This is useful when optimising numbers of PEER factors because the nominal pass is much slower than the permutation pass. 
+
 # Selecting modes
 
 The QTL-mapping-pipeline currently supports 3 modes of execution:

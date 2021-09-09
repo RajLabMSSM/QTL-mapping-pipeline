@@ -41,9 +41,14 @@ load(countMatrixRData)
 message(" * loading GTF")
 gtf <- rtracklayer::readGFF(gtf)
 
-samples <- read_tsv(sample_key, col_types = "cc")
+samples <- readr::read_tsv(sample_key, col_types = "cc")
 
 genes <- unique( gtf$gene_id )
+
+if("Gene" %in% colnames(genes_counts) ){
+    genes_counts <- tibble::column_to_rownames(genes_counts, "Gene")
+    genes_tpm <- tibble::column_to_rownames(genes_tpm, "Gene")
+}
 
 counts <- genes_counts[ genes, samples$sample_id]
 tpm <- genes_tpm[ genes, samples$sample_id]
