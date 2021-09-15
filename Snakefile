@@ -19,6 +19,19 @@ shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/
 
 # Interaction QTLs
 # interaction mode - set default to False
+if "interaction" not in config.keys():
+    config["interaction"] = False
+interaction = bool(config["interaction"])
+
+# requires an interaction_file and an interaction_name in the config.yaml
+if( interaction is True ):
+    print(" * interaction mode selected")
+    if "interaction_name" not in config.keys():
+        sys.exit("config.yaml does not contain interaction_name value")
+if( interaction is True ):
+    if "interaction_file" not in config.keys():
+        sys.exit("config.yaml does not contain interaction_file value")
+
     
 if(interaction is True):
     interaction_name = config["interaction_name"]
@@ -73,7 +86,7 @@ if "chr_type" not in config.keys():
     config["chr_type"] = "chr1"
     print(" * assuming chromosome names include \"chr\" in your VCF - add chr_type: \"1\" to your config.yaml if this is not the case" ) 
 if config["chr_type"] == "chr1":
-    CHROM = [“chr” + str(i) for i in range(1,23)]
+    CHROM = ["chr" + str(i) for i in range(1,23)]
 else:
     CHROM= [i for i in range(1,23)]
 
