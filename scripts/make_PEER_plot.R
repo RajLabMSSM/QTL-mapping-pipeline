@@ -56,7 +56,8 @@ sig_res_df <-
   mutate(n_features = sig_res_n_qtl) %>%
   mutate(n_sig_QTL = sig_res_n_sig) %>%
   mutate(n_genes = sig_res_n_gene) %>%  
-mutate(file = basename(sig_res) )
+mutate(file = basename(sig_res) ) %>%
+mutate(perc = signif( (n_sig_QTL / n_features) * 100, 2) )
 
 print(as.data.frame(sig_res_df))
 
@@ -70,17 +71,18 @@ xbreaks <- unique(sig_res_df$n_peer)
 
 n_QTL_per_PEER_plot <-
   sig_res_df %>%
-  ggplot(aes( y = n_genes, x = n_peer, group = dataset)) + 
-  geom_point(aes(colour = dataset)) +
-  geom_line(aes(colour = dataset), show.legend=FALSE) +
-  geom_text(aes(label = n_genes), vjust = 0, nudge_y = 0.5, show.legend=FALSE, size = 3 ) +
+  mutate(dataset_label = paste0( dataset, "\n(N = ", n_features, ")" ) ) %>%
+  ggplot(aes( y = n_genes, x = n_peer, group = dataset_label)) + 
+  geom_point(aes(colour = dataset_label)) +
+  geom_line(aes(colour = dataset_label), show.legend=FALSE) +
+  geom_text(aes(label = perc), vjust = 0, show.legend=FALSE, size = 3, position = position_jitter(height = 0, width = 1) ) +
   scale_x_continuous( breaks = xbreaks, labels = xbreaks ) + 
   xlab("Number of PEER factors") +
   ylab("Number of QTL genes") +
   ylim(0, ymax) +
   theme(legend.position = "bottom") +
   scale_colour_brewer(type = "qual") +
-  labs(title = data_code, subtitle = paste0("FDR = ", fdr) ) +
+  labs(title = data_code, subtitle = paste0("% of tested features significant at FDR = ", fdr ) ) +
   theme_bw()
 
 

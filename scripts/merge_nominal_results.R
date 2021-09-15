@@ -53,6 +53,8 @@ for( file in all_parquet){
 }
 stopifnot( all(file.exists(all_parquet) ))
 
+header_file <- paste0(outFile, "_header")
+
 # read in each file with read_parquet
 # join on SNP info 
 # sort by position
@@ -72,7 +74,9 @@ all_res <-
         message( "* writing to: ", tempFile )
         # only write out header for chr1
         if( chr == "chr1" ){
-            write_tsv(df, path = tempFile, col_names = TRUE ) 
+            # write column names as separate file
+            write_tsv(df[0,], path = header_file, col_names = TRUE)
+            write_tsv(df, path = tempFile, col_names = FALSE) 
         }else{
             write_tsv(df, path = tempFile, col_names = FALSE)
         }
@@ -84,12 +88,13 @@ all_res <-
 message(" * concatenating to ", outFile)
 
 all_temp <- paste0(outFile, "_chr", gsub("chr","",unique(snp_df$chr)), collapse = " ")
+all_temp <- paste0(header_file, " ", all_temp)
 cmd <- paste( "cat", all_temp, " > ", outFile )
 message( cmd )  
 system(cmd)
 # remove temp files
 cmd <- paste( "rm ", all_temp)
-system(cmd)
+#system(cmd)
 #write_tsv(all_res, path = outFile)
 
 # sorting
@@ -109,3 +114,6 @@ message(" * tabixing " )
 tabix_cmd <- paste0(" ml bcftools; tabix -S 1 -s 10 -b 11 -e 11 ", outFile, ".gz" )
 message(" * ", tabix_cmd)
 system(tabix_cmd)
+
+clean_cmd <- paste0("rm ", outFile, ".sorted" )
+
