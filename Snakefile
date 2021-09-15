@@ -1,36 +1,3 @@
-# QTL mapping pipeline
-# Jack Humphrey 
-import glob
-import pandas as pd
-import os
-
-mode = config["mode"]
-dataCode = config["dataCode"]
-
-print(" * QTL-mapping pipeline *")
-print(" Jack Humphrey 2019-2020 ")
-print(" * Data code is : %s " % dataCode)
-print(" * Mode selected is: %s" % mode)
-
-nPerm = 10000 # number of permutations of the permutation pass
-
-R_VERSION = "R/4.0.3"
-shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
-
-# Interaction QTLs
-# interaction mode - set default to False
-if "interaction" not in config.keys():
-    config["interaction"] = False
-interaction = bool(config["interaction"])
-
-# requires an interaction_file and an interaction_name in the config.yaml
-if( interaction is True ):
-    print(" * interaction mode selected")
-    if "interaction_name" not in config.keys():
-        sys.exit("config.yaml does not contain interaction_name value")
-if( interaction is True ):
-    if "interaction_file" not in config.keys():
-        sys.exit("config.yaml does not contain interaction_file value")
     
 if(interaction is True):
     interaction_name = config["interaction_name"]
@@ -81,21 +48,18 @@ bamSuffix = ""
 BAM_SAMPLES = []
 group_string = ""
 
-CHROM = [i for i in range(1,23)]
-#CHROM = subprocess.run(["ml tabix; tabix","-l", VCF], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
-
-## MODE SELECTION - MATCH BAMS TO VARIANTS
-if(mode == "mbv"):
-    bamFolder = config["bamFolder"]
-    bamSuffix = config["bamSuffix"]
-    BAM_SAMPLES = [os.path.basename(x).strip(bamSuffix) for x in glob.glob(bamFolder + "/*" + bamSuffix)]
-    dataCode = dataCode + "_mbv"
-    final_output = prefix + "_mbv_summary.txt"
+if "chr_type" not in config.keys():
+    config["chr_type"] = "chr1"
+    print(" * assuming chromosome names include \"chr\" in your VCF - add chr_type: \"1\" to your config.yaml if this is not the case" ) 
+if config["chr_type"] == "chr1":
+    CHROM = [“chr” + str(i) for i in range(1,23)]
 else:
-    sample_key = config["sampleKey"]
-    genotypePCs = config["genotypePCs"]
-    covariateFile = config["covariateFile"]
-    PEER_values = config["PEER_values"]
+    CHROM= [i for i in range(1,23)]
+
+sample_key = config["sampleKey"]
+genotypePCs = config["genotypePCs"]
+covariateFile = config["covariateFile"]
+PEER_values = config["PEER_values"]
 
 # MODE SELECTION - expression QTLs
 if(mode == "eQTL"):
@@ -567,38 +531,4 @@ rule mergeNominalResult_interaction:
         " ml {R_VERSION}; ml snappy;"
         " Rscript {params.script} --vcf {VCF} --out_folder {outFolder} --prefix {params.prefix} "  
 
-## MBV - MATCH BAM TO VARIANTS ---------------------------------------------------------------
-# THIS SHOULD BE RUN BEFORE QTL MAPPING TO CHECK FOR SAMPLE SWAPS
-# do on Chromosome 1 - big enough to properly identify sample swaps, hopefully
 
-# index each bam file if not already
-rule indexBam:
-    input:
-        bamFolder + "{sample}.bam"
-    output:
-        bamFolder + "{sample}.bam.bai"
-    shell:
-        "ml samtools/1.9;"
-        "samtools index {input}"
-
-# run match BAM to variants
-rule matchBAM2VCF:
-    input:
-        bam = bamFolder + "{sample}.bam",
-        vcf = VCF
-    output:
-        outFolder + "output/{sample}.bamstat.txt"
-    shell:
-        "ml qtltools/1.2;"
-        "QTLtools mbv --bam {input.bam} --vcf {input.vcf} --filter-mapping-quality 150 --out {output}"
-
-rule summariseResults:
-    input:
-        files = expand(outFolder + "output/{sample}.bamstat.txt", sample = BAM_SAMPLES)
-    output:
-        prefix + "_mbv_summary.txt"
-    shell:
-        "set +o pipefail;"
-        "for i in {input.files};"
-        "do cat $i | sort -k9nr,10nr | head -1 | awk -v i=$i \'{{print i, $0}}\'  ;"
-        "done > {output};"
