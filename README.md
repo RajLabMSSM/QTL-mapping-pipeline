@@ -105,6 +105,9 @@ Examples of each input file are in `example/`. The master file is the `config.ya
   Path to count matrix, an RData file created by collating gene expression values from RSEM. I use the output of [collate_samples](https://github.com/RajLabMSSM/RNA-pipelines/tree/master/collate_samples).
   This matrix can contain more samples than you plan to analyse as the matrix will be filtered.
 
+#### `chr_type:`
+  This sets whether chromosome names follow the "chr1" or the "1" convention. Default is "chr1", otherwise set to "1".
+
 #### `interaction:` 
   (optional) Flag for interaction-eQTL analysis. If set `True` (default is `False`), other the parameters `interaction_name` and `interaction_file` must be specified. See more below.
 

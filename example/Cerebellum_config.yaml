@@ -7,3 +7,4 @@ PEER_values: '30'
 VCF: example/chrAll_QCFinished_MAF0.01.vcf.gz
 countMatrixRData: example/gene_matrix.RData
 mode: sQTL
+chr_type: "chr1" # can be "chr1" or "1" - must match your VCF
