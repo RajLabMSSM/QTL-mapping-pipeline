@@ -55,7 +55,8 @@ def pool_junc_reads(flist, options):
             if int(blockCount) > 2:
                 print(ln)
                 continue
-
+            # regtools -s 0 (unstranded) now puts "?" in strand field when strand is ambiguous
+            if strand == "?": continue
             if checkchrom and (chrom not in chromLst): continue
             Aoff, Boff = blockSize.split(",")
             A, B = int(A)+int(Aoff), int(B)-int(Boff)+1
@@ -152,7 +153,7 @@ def sort_junctions(libl, options):
         fout = gzip.open(foutName, 'wb')
 
         fout.write(header_string.encode('utf-8') )
-	#fout = gzip.open(foutName,'wb')
+    #fout = gzip.open(foutName,'wb')
 
         #fout.write("chrom %s\n"%libN.split("/")[-1].split(".junc")[0])
 
