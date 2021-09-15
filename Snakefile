@@ -1,3 +1,24 @@
+# QTL mapping pipeline
+# Jack Humphrey 
+import glob
+import pandas as pd
+import os
+
+mode = config["mode"]
+dataCode = config["dataCode"]
+
+print(" * QTL-mapping pipeline *")
+print(" Jack Humphrey 2019-2020 ")
+print(" * Data code is : %s " % dataCode)
+print(" * Mode selected is: %s" % mode)
+
+nPerm = 10000 # number of permutations of the permutation pass
+
+R_VERSION = "R/4.0.3"
+shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
+
+# Interaction QTLs
+# interaction mode - set default to False
     
 if(interaction is True):
     interaction_name = config["interaction_name"]
