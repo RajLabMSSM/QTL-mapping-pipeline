@@ -5,6 +5,7 @@ covariateFile: example/Cerebellum_wgs_covariates.txt
 junctionFileList: example/test_junction_paths.txt
 PEER_values: '30'
 VCF: example/chrAll_QCFinished_MAF0.01.vcf.gz
+GTF: /sc/arion/projects/ad-omics/data/references//hg38_reference/GENCODE/gencode.v30.annotation.gtf
 countMatrixRData: example/gene_matrix.RData
 mode: sQTL
 chr_type: "chr1" # can be "chr1" or "1" - must match your VCF

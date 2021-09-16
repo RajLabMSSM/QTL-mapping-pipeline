@@ -118,19 +118,27 @@ if __name__=='__main__':
 
         print('  * decompressing and renaming junc files')
         with open(args.junc_files_list) as f:
-            junc_files = f.read().strip().split('\n')
+            all_junc_files = f.read().strip().split('\n')
 
         junc_dir = os.path.join(args.output_dir, 'junc_files')
         if not os.path.exists(junc_dir):
             os.mkdir(junc_dir)
-        sample_ids = []
         # read in sample participant lookup
         sample_participant_lookup_s = pd.read_csv(args.sample_participant_lookup, sep='\t', index_col=0, dtype=str, squeeze=True)
+        
         # match sample_id to participant_id, use this as naming the junctions
         # do on final leafcutter bed
-        for f in junc_files:
+        sample_ids = []
+        junc_files = []
+
+        for f in all_junc_files:
             sample_id = os.path.split(f)[1].split('.')[0]
-            sample_ids.append(sample_id)
+            # only if sample is in the sample key
+            if sample_id in sample_participant_lookup_s.keys():
+                sample_ids.append(sample_id)
+                junc_files.append(junc_files)
+            else:
+                print( "  * " + sample_id + " is not present in sample key - ignoring" )
             # shutil.move(f, os.path.join(junc_dir, sample_id+'.junc.gz'))
             # no longer assume gzipped
             #shutil.copy2(f, os.path.join(junc_dir, sample_id+'.junc'))
