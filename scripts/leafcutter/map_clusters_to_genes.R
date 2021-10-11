@@ -39,6 +39,9 @@ map_clusters_to_genes <- function(intron_meta, exons_table, flip = FALSE) {
     if(flip == TRUE){
         intron_chr$strand <- ifelse(intron_chr$strand == "+", "-", "+")
     }
+    if(nrow(intron_chr)==0 | nrow(exons_chr)==0){
+        return(data.frame(clu = NA, gene_name = NA))
+    }
     print(head(exons_chr))
     print(head(intron_chr))
     
