@@ -81,7 +81,8 @@ bamSuffix = ""
 BAM_SAMPLES = []
 group_string = ""
 
-CHROM = [i for i in range(1,23)]
+CHROM = ["chr" + str(i) for i in range(1,23)]
+
 #CHROM = subprocess.run(["ml tabix; tabix","-l", VCF], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
 
 ## MODE SELECTION - MATCH BAMS TO VARIANTS
