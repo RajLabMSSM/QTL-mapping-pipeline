@@ -63,6 +63,12 @@ if "no_nominal" not in config.keys():
 no_nominal = bool(config["no_nominal"])
 
 
+## MAF - minor allele frequency - default = 0.01
+if "MAF" not in config.keys():
+    config["MAF"] = 0.01
+no_nominal = config["no_nominal"]
+
+
 # Common config variables - all modes require these
 leafcutter_dir = "/sc/arion/projects/ad-omics/data/software/leafcutter/"
 GTF = config["GTF"]
@@ -389,7 +395,7 @@ rule VCFtoPLINK:
         "--output-chr chrM "
         "--max-alleles 2 "
         "--keep {input.participants} "
-        "--maf 0.01 "
+        "--maf {MAF} "
         "--allow-extra-chr "
         "--max-maf 0.9975 "
         "--vcf {input.vcf} "

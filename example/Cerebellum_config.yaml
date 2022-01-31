@@ -9,3 +9,4 @@ GTF: /sc/arion/projects/ad-omics/data/references//hg38_reference/GENCODE/gencode
 countMatrixRData: example/gene_matrix.RData
 mode: sQTL
 chr_type: "chr1" # can be "chr1" or "1" - must match your VCF
+MAF: 0.01 
