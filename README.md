@@ -78,7 +78,7 @@ Examples of each input file are in `example/`. The master file is the `config.ya
  See example/Cerebellum_genotype_PCs.txt 
  
 #### `covariateFile:`
-  A matrix of other covariates you want to include such as sex and sequencing platform. Again the columns should be ID and the sample_id values and the rows should be the covariates.
+  A matrix of other covariates you want to include such as sex and sequencing platform. Again the columns should be ID and the participant_id values and the rows should be the covariates.
   
   See example/Cerebellum_wgs_covariates.txt 
 
