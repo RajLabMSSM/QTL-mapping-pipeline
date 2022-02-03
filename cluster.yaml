@@ -8,8 +8,9 @@ __default__:
   error: logs/{rule}:{wildcards}.stderr
   gpuString: ""
   himem: ""
+
 createGCTFiles:
-    mem: 32000
+    mem: 16000
 
 prepareExpression:
   cores: 4
@@ -68,10 +69,10 @@ tensorQTL_cis_independent:
 
 mergeNominalResult:
   cores: 1
-  mem: 48000
+  mem: 16000
 
 mergeNominalResult_interaction:
   cores: 1
-  mem: 56000
+  mem: 16000
 
 ## copied from Shea - this shows how to set rule-specific cluster parameters
