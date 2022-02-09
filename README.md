@@ -1,6 +1,9 @@
 QTL mapping pipeline
 =====================
 
+Welcome to the QTL Pipeline, where all your QTL dreams come true!
+
+
 authors: Sanan Venkatesh and Jack Humphrey
 Towfique Raj lab, Mount Sinai
 
