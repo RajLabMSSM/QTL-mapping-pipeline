@@ -45,6 +45,17 @@ if "trans" not in config.keys():
     config["trans"] = False
 trans = bool(config["trans"])
 
+# setting value for "extract_str" to determine which snps to use for trans analysis
+if "snp_list" not in config.keys():
+    config["snp_list"] = "all"
+
+snps = config["snp_list"]
+if snps == "all":
+    extract_str = ""
+else:
+    extract_str = "--extract " + snps
+print("EXTRACT STRING = ", extract_str)
+
 # Conditional eQTL
 # set default to False
 if "conditional_qtls" not in config.keys():
@@ -64,6 +75,7 @@ no_nominal = bool(config["no_nominal"])
 
 
 ## MAF - minor allele frequency - default = 0.01
+MAF=0.01
 if "MAF" not in config.keys():
     config["MAF"] = 0.01
 no_nominal = config["no_nominal"]
@@ -400,6 +412,9 @@ rule VCFtoPLINK:
         "--max-maf 0.9975 "
         "--vcf {input.vcf} "
         "--out {params.stem} "
+	"{extract_str} "
+	#"if snp_list"
+	#plink2 --bfile {params.stem} --extract <snp list> --make-bed --out {params.stem}"
 
 # cis eQTL mapping with permutations (i.e. top variant per phenotype group)
 rule tensorQTL_cis:
