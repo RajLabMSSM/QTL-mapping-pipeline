@@ -402,7 +402,7 @@ rule VCFtoPLINK:
     params:
         stem = prefix + "_genotypes"
     shell:
-        "ml plink2; "
+        "ml plink2/2.3; "
         "plink2 --make-bed "
         "--output-chr chrM "
         "--max-alleles 2 "
