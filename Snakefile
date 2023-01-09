@@ -161,6 +161,32 @@ if(mode == "sQTL"):
     if( trans == True & interaction == True ):
         final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values, interaction_id = interaction_name ) )
 
+# MODE SELECTION - editing QTLs
+if(mode == "edQTL"):
+    inDir = config["jacusaDir"]
+    group_by_values = ["gene"]
+    PEER_values = config["PEER_values"]
+    dataCode = dataCode + "_editing"
+    qtl_window = int(1e6)
+    outFolder = "results/" + dataCode + "/"
+    prefix = outFolder + dataCode
+    phenotype_matrix = prefix + ".editing.bed.gz"
+    phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) ]
+    if( no_nominal == False ):
+        final_output.append(expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) )
+    group_file = prefix + ".group.tensorQTL.{group_by}.bed.gz"
+    group_string = " --phenotype_groups " + group_file
+    if( conditional_qtls == True ):
+        final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
+    if( interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}_interaction_{interaction_id}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = group_by_values, interaction_id = interaction_name ) )
+    if( trans == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values ) )
+    if( trans == True & interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values, interaction_id = interaction_name ) )
+
+
 ## NEW MODES TO GO HERE - EDITING QTLs, PROTEIN QTLs etc.
 
 rule all:
@@ -291,7 +317,30 @@ rule prepareExpression:
         " --count_threshold 6 "
         " --sample_frac_threshold 0.2 "
         " --normalization_method tmm "
-       
+
+rule prepareEditing:
+    input:
+        vcf_chr_list = prefix + "_vcf_chr_list.txt",
+        ratios = inDir + "all_sites_pileup_editing.tsv.gz",
+        anno = inDir + "all_sites_pileup_annotation.tsv.gz",
+        sample_key = sample_key
+    output:
+        bed = prefix + ".bed",
+        sorted = prefix + ".bed.sorted",
+        editing_bed_gz = prefix + ".editing.bed.gz",
+        editing_bed_index = prefix + ".editing.bed.gz.tbi"
+    params:
+        script = "scripts/edqtl_prepare_editing.R"
+    shell:
+        " ml {R_VERSION}; "
+        " Rscript {params.script} --vcf_chr_list {input.vcf_chr_list} "
+        " --rat {input.ratios} --anno {input.anno} --keyIn {input.sample_key} "
+        " --pheno {output.bed}; "
+        " cat {output.bed} | (sed -u 1q; sort -k 1,1V -k2,2n) > {output.sorted}; "
+        " ml tabix; "
+        " bgzip < {output.sorted} > {output.editing_bed_gz}; "
+        " tabix -f -p bed {output.editing_bed_gz}; "
+
 rule runPEER:
     input:
         phenotype_matrix # either expression or splicing counts
