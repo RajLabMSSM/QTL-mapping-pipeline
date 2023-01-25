@@ -37,7 +37,7 @@ ratios <- rbind(keyfix,ratios)
 colnames(ratios) <- ratios['participant_id',]
 Rat <- ratios[!(rownames(ratios) == 'participant_id'),]
 RAT <- lapply(Rat, function(x) as.numeric(as.character(x)))
-RAT <- as.data.frame(RAT, row.names = rownames(Rat))
+RAT <- data.frame(RAT, row.names = rownames(Rat), check.names = F)
 
 rat <- RAT %>% rownames_to_column(., var = "ESid")
 rat[is.na(rat)] <- 0
@@ -51,8 +51,8 @@ norm <- pheno %>%
   remove_rownames(.) %>%
   column_to_rownames(., var = "ESid") %>%
   scale(., center = T, scale = T) %>%
-  preprocessCore::normalize.quantiles(data.matrix(.)) %>%
-  data.frame(.) %>%
+  preprocessCore::normalize.quantiles(., keep.names = T) %>%
+  data.frame(., check.names = F) %>%
   rownames_to_column(., var = "ESid")
 
 geneIDs <- subset(anno, select = c("ESid2", "ensembl_id", "strand"))

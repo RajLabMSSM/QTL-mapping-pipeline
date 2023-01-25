@@ -15,6 +15,7 @@ print(" * Mode selected is: %s" % mode)
 nPerm = 10000 # number of permutations of the permutation pass
 
 R_VERSION = "R/4.0.3"
+prepare_editing_R_VERSION = "R/4.2.0"
 shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
 
 # Interaction QTLs
@@ -167,7 +168,7 @@ if(mode == "edQTL"):
     group_by_values = ["gene"]
     PEER_values = config["PEER_values"]
     dataCode = dataCode + "_editing"
-    qtl_window = int(1e6)
+    qtl_window = int(1e5)
     outFolder = "results/" + dataCode + "/"
     prefix = outFolder + dataCode
     phenotype_matrix = prefix + ".editing.bed.gz"
@@ -332,7 +333,7 @@ rule prepareEditing:
     params:
         script = "scripts/edqtl_prepare_editing.R"
     shell:
-        " ml {R_VERSION}; "
+        " ml {prepare_editing_R_VERSION}; "
         " Rscript {params.script} --vcf_chr_list {input.vcf_chr_list} "
         " --rat {input.ratios} --anno {input.anno} --keyIn {input.sample_key} "
         " --pheno {output.bed}; "
