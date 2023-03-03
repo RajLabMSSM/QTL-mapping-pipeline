@@ -76,7 +76,7 @@ Examples of each input file are in `example/`. The master file is the `config.ya
   See: example/Cerebellum_sample_key.txt
   
 #### `genotypePCs:` 
-  A matrix of genotype PCs where the columns are first `ID` and then the sample IDs (matching the `sample_id` column of the sample key), and the rows are principal components of the genotypes. The first column gives the name of the PCs. 
+  A matrix of genotype PCs where the columns are first `ID` and then the participant IDs (matching the `participant_id` column of the sample key), and the rows are principal components of the genotypes. The first column gives the name of the PCs. 
  
  See example/Cerebellum_genotype_PCs.txt 
  
