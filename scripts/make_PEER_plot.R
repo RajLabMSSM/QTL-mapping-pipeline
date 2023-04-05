@@ -63,7 +63,7 @@ print(as.data.frame(sig_res_df))
 
 out_table <- paste0(out_folder, "/", data_code, "_N_per_PEER.tsv")
 
-write_tsv(sig_res_df, path = out_table)
+write_tsv(sig_res_df, file = out_table)
 
 
 ymax <- max(sig_res_df$n_genes) + (max(sig_res_df$n_genes) * 0.1) 
