@@ -63,7 +63,7 @@ if "conditional_qtls" not in config.keys():
     config["conditional_qtls"] = False
 conditional_qtls = bool(config["conditional_qtls"])
 
-if( interaction is True ):
+if( trans is True ):
     print(" * trans-eQTL mode selected")
 
 if( conditional_qtls is True ):
@@ -107,7 +107,7 @@ if "chr_type" not in config.keys():
 if config["chr_type"] == "chr1":
     CHROM = ["chr" + str(i) for i in range(1,23)]
 else:
-    CHROM= [i for i in range(1,23)]
+    CHROM= [i for i in range(1,22)]
 
 sample_key = config["sampleKey"]
 genotypePCs = config["genotypePCs"]
