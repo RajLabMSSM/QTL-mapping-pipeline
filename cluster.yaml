@@ -24,6 +24,10 @@ prepareEditing:
     cores: 4
     mem: 8000
 
+prepareTranscriptExpression:
+    cores: 4
+    mem: 8000
+
 runPEER:
     queue: premium
     cores: 1

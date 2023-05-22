@@ -187,6 +187,33 @@ if(mode == "edQTL"):
     if( trans == True & interaction == True ):
         final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = group_by_values, interaction_id = interaction_name ) )
 
+# MODE SELECTION - transcript expression QTLs
+if(mode == "teQTL"):
+    outFolder = "results/" + dataCode + "/"
+    group_by_values = ["transcript_expression"]
+    PEER_values = config["PEER_values"]
+    dataCode = dataCode + "_transcript_expression"
+    qtl_window = int(1e6)
+    outFolder = "results/" + dataCode + "/"
+    prefix = outFolder + dataCode
+    phenotype_matrix = prefix + ".phenotype.te.bed.gz"
+    phenotype_tensorQTL_matrix = prefix + ".phenotype.tensorQTL.bed.gz"
+
+    tpms = config["transcriptTPM"]
+    meta = config["combinedTranscriptReferenceMeta"]
+
+    final_output = [ expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) ]
+    if( no_nominal == False ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode +"_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene" ) )
+    if( conditional_qtls == True ):
+        final_output.append( expand(outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.cis_independent_qtl.txt.gz", PEER_N = PEER_values, group_by = group_by_values) )
+    if( interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.cis_qtl_nominal_tabixed.tsv.gz", PEER_N = PEER_values, group_by = "gene", interaction_id = interaction_name ) )
+    if( trans == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene" ) )
+    if( trans == True & interaction == True ):
+        final_output.append( expand( outFolder + "peer{PEER_N}/" + dataCode + "_interaction_{interaction_id}_peer{PEER_N}_{group_by}.trans_qtl_pairs.txt.gz", PEER_N = PEER_values, group_by = "gene", interaction_id = interaction_name ) )
+countMatrixRData = config["countMatrixRData"]
 
 ## NEW MODES TO GO HERE - EDITING QTLs, PROTEIN QTLs etc.
 
@@ -319,6 +346,20 @@ rule prepareExpression:
         " --sample_frac_threshold 0.2 "
         " --normalization_method tmm "
 
+rule prepareTranscriptExpression:
+    input:
+        sk = sample_key,
+        tpms = tpms,
+        meta = meta,
+    output:
+        phenotype_matrix
+    params:
+        stem = prefix,
+        script = "scripts/prepare_transcript_expression.R"
+    shell:
+        "ml {R_VERSION};"
+        "Rscript {params.script} --prefix {params.stem} --key {input.sk} --pheno_matrix {input.tpms} --pheno_meta {input.meta}"
+
 rule prepareEditing:
     input:
         vcf_chr_list = prefix + "_vcf_chr_list.txt",
@@ -420,7 +461,8 @@ rule preparePhenotypeForTensorQTL:
         
         # create group and ID table - phenotype group (used for splicing)
         phenotype_group_df = phenotype_df[[gene_id, group_id]]
-
+        if( wildcards.group_by == "transcript_expression" ):
+            phenotype_group_df = phenotype_df[[gene_id, gene_id]]
         # drop group and strand from phenotype table
         phenotype_df.drop(['strand', group_id], axis=1, inplace=True)
         phenotype_df.to_csv(output.pheno, index = False, sep = "\t")
