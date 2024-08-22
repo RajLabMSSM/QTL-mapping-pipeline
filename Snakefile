@@ -100,6 +100,9 @@ bamFolder = ""
 bamSuffix = ""
 BAM_SAMPLES = []
 group_string = ""
+tpms = ""
+meta = ""
+inDir = ""
 
 if "chr_type" not in config.keys():
     config["chr_type"] = "chr1"
