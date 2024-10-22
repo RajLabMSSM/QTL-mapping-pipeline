@@ -10,23 +10,23 @@ __default__:
   himem: ""
 
 createGCTFiles:
-    mem: 16000
+    mem: 8000
 
 prepareExpression:
-  cores: 4
-  mem: 8000
+  cores: 2
+  mem: 4000
 
 prepareSplicing:
-    cores: 4
-    mem: 8000
+    cores: 2
+    mem: 4000
 
 prepareEditing:
-    cores: 4
-    mem: 8000
+    cores: 2
+    mem: 4000
 
 prepareTranscriptExpression:
-    cores: 4
-    mem: 8000
+    cores: 2
+    mem: 4000
 
 runPEER:
     queue: premium
@@ -34,53 +34,47 @@ runPEER:
     time: 144:00
 
 tensorQTL_cis:
-    queue: gpu
-    cores: 4
-    mem: 24000
+    cores: 2
+    queue: premium
+    mem: 8000
     time: 144:00
-    gpuString: -gpu num=4:aff=no -R a100
 
 tensorQTL_cis_nominal:
-    queue: gpu
-    cores: 4
-    mem: 24000
+    cores: 2
+    queue: premium
+    mem: 8000
     time: 144:00
-    gpuString: -gpu num=4:aff=no -R a100
 
 tensorQTL_trans:
-    queue: gpu
-    cores: 4
-    mem: 24000
+    cores: 2
+    queue: premium
+    mem: 8000
     time: 144:00
-    gpuString: -gpu num=4:aff=no -R a100
 
 tensorQTL_cis_interaction:
-    queue: gpu
-    cores: 4
-    mem: 24000
+    cores: 2
+    queue: premium
+    mem: 8000
     time: 144:00
-    gpuString: -gpu num=4:aff=no -R a100
 
 tensorQTL_insteraction_trans:
-   queue: gpu
-   cores: 4
-   mem: 24000
+   cores: 2
+   queue: premium
+   mem: 8000
    time: 144:00
-   gpuString: -gpu num=4:aff=no -R a100
 
 tensorQTL_cis_independent:
-   queue: gpu
-   cores: 4
-   mem: 24000
+   cores: 2
+   queue: premium
+   mem: 8000
    time: 144:00
-   gpuString: -gpu num=4:aff=no -R a100
 
 mergeNominalResult:
   cores: 1
-  mem: 16000
+  mem: 12000
 
 mergeNominalResult_interaction:
   cores: 1
-  mem: 16000
+  mem: 12000
 
 ## copied from Shea - this shows how to set rule-specific cluster parameters
