@@ -14,7 +14,8 @@ print(" * Mode selected is: %s" % mode)
 
 nPerm = 10000 # number of permutations of the permutation pass
 
-R_VERSION = "R/4.0.3"
+#R_VERSION = "R/4.0.3"
+R_VERSION = "R/4.4.1"
 prepare_editing_R_VERSION = "R/4.2.0"
 shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
 
