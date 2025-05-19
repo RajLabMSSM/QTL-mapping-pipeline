@@ -175,7 +175,7 @@ if __name__=='__main__':
         tpm_df = tpm_df/tpm_df.sum(0)*1e6
 
     print('Normalizing data ({})'.format(args.normalization_method), flush=True)
-    sample_participant_lookup_s = pd.read_csv(args.sample_participant_lookup, sep='\t', index_col=0, dtype=str, squeeze=True)
+    sample_participant_lookup_s = pd.read_csv(args.sample_participant_lookup, sep='\t', index_col=0, dtype=str).iloc[:, 0]
     norm_df = prepare_expression(counts_df, tpm_df, sample_participant_lookup_s, sample_frac_threshold=args.sample_frac_threshold,
         count_threshold=args.count_threshold, tpm_threshold=args.tpm_threshold, mode=args.normalization_method)
     print('  * {} genes in input tables.'.format(counts_df.shape[0]), flush=True)
