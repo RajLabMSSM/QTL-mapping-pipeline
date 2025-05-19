@@ -14,8 +14,8 @@ print(" * Mode selected is: %s" % mode)
 
 nPerm = 10000 # number of permutations of the permutation pass
 
-#R_VERSION = "R/4.0.3"
-R_VERSION = "R/4.4.1"
+R_VERSION = "R/4.0.3"
+createGCTFiles_R_VERSION = "R/4.4.1"
 prepare_editing_R_VERSION = "R/4.2.0"
 shell.prefix('ml anaconda3; CONDA_BASE=$(conda info --base); source $CONDA_BASE/etc/profile.d/conda.sh; ml purge; conda activate QTL-pipeline; ml {R_VERSION};')
 
@@ -259,7 +259,7 @@ rule createGCTFiles:
         counts_gct_file = prefix + "_counts.gct",
         tpm_gct_file = prefix + "_tpm.gct"
     shell:
-        "ml {R_VERSION}; "
+        "ml {createGCTFiles_R_VERSION}; "
         "Rscript scripts/create_GCT_files.R "
         " --counts {input.counts} "
         " --key {input.key} "
